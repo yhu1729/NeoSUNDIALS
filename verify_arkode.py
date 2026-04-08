@@ -11,8 +11,8 @@ PYTHON_DIR = ROOT / "python"
 if str(PYTHON_DIR) not in sys.path:
     sys.path.insert(0, str(PYTHON_DIR))
 
-from sundials_extracted_core.ark_problems import ark_brusselator_problem, ark_lotka_volterra_problem  # noqa: E402
-from sundials_extracted_core.ark_workflow import ARKSolverConfig, solve_ark_problem  # noqa: E402
+from NeoSUNDIALS.ark_problems import ark_brusselator_problem, ark_lotka_volterra_problem  # noqa: E402
+from NeoSUNDIALS.ark_workflow import ARKSolverConfig, solve_ark_problem  # noqa: E402
 
 
 def run_case(name, problem, config, output_times):

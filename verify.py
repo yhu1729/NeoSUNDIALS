@@ -11,7 +11,7 @@ PYTHON_DIR = ROOT / "python"
 if str(PYTHON_DIR) not in sys.path:
     sys.path.insert(0, str(PYTHON_DIR))
 
-from sundials_extracted_core import (  # noqa: E402
+from NeoSUNDIALS import (  # noqa: E402
     SolverConfig,
     lotka_volterra_problem,
     robertson_problem,

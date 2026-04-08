@@ -45,7 +45,7 @@ The extraction intentionally reduces scope:
 
 ## Core Workflow Algorithms Extracted From SUNDIALS
 
-The Python workflow in `python/sundials_extracted_core/workflow.py` mirrors the
+The Python workflow in `python/NeoSUNDIALS/workflow.py` mirrors the
 shape used throughout:
 
 - `sundials/examples/python/*`
@@ -87,7 +87,7 @@ The C implementation in `c/arkode_core.c` keeps these core ideas:
 - dense Jacobian or finite-difference Jacobian fallback
 - ARKODE-style error-driven step adaptation
 
-The Python implementation in `python/sundials_extracted_core/ark_workflow.py`
+The Python implementation in `python/NeoSUNDIALS/ark_workflow.py`
 keeps the higher-level ARKODE workflow ideas:
 
 - create a problem object
