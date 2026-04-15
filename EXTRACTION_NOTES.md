@@ -123,6 +123,30 @@ keeps the higher-level ARKODE workflow ideas:
 - NVector weighted norms are present but currently under validation because
   the weight vector is not consumed in all weighted operators.
 
+## Porting Conventions
+
+Every new routine or workflow port should follow the same extraction shape so
+the project stays compact and reviewable.
+
+- Preserve SUNDIALS algorithmic lineage, not full API parity.
+- Add the smallest cohesive routine subset that supports one end-to-end use
+  case.
+- Keep responsibilities split:
+  - C (`c/*.c`, `c/*.h`) owns time-stepping numerics and status codes.
+  - Python (`python/NeoSUNDIALS/*`) owns configuration, workflow policy,
+    sampling/interpolation, and user-facing errors.
+- Keep native handles opaque and lifecycle explicit (`create`/`step`/`destroy`).
+- Follow existing status semantics: `0` for success, nonzero for failures, then
+  raise Python exceptions with useful context.
+- Prefer deterministic defaults in tests and examples (fixed seeds, explicit
+  tolerances, explicit output grids).
+
+Each port should update this file with:
+
+- source SUNDIALS routines/docs used for extraction,
+- supported subset and explicit exclusions,
+- test matrix entries mapped to concrete test files.
+
 ## Testing Matrix
 
 | Claim | Primary implementation | Test coverage | Status |
