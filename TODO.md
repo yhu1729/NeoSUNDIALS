@@ -1,5 +1,9 @@
 # TODO: Routine Porting Checklist
 
+For the higher-level staged plan, see [PORTING_ROADMAP.md](PORTING_ROADMAP.md).
+This file stays focused on the checklist for each individual routine or
+workflow port.
+
 Use this checklist for each new SUNDIALS routine/workflow port so extraction,
 testing, and docs stay consistent.
 
@@ -53,12 +57,16 @@ area without an end-to-end problem that exercises it.
 
 ## Current High-Value Follow-Ups
 
+- [ ] Document native status codes and Python exception mapping for SBDF, DAE,
+      ARK, and NVector failure modes.
 - [ ] Harden native DAE residual stepping enough to reduce or remove the Python
       residual-bridge fallback.
 - [ ] Add a nontrivial DAE verification problem beyond linear decay.
-- [ ] Expose native status constants in headers or Python error mapping docs so
-      failure modes are easier to interpret.
 - [ ] Decide whether ARK interpolation/tstop/reset should remain
       workflow-level emulation or become native API surface.
+- [ ] Add ARK method metadata validation before broadening built-in table
+      coverage.
+- [ ] Evaluate a shared dense linear-solver helper only if it removes real
+      duplication across solver kernels.
 - [ ] Keep `README.md`, `EXTRACTION_NOTES.md`, and this checklist synchronized
       whenever a solver capability changes.

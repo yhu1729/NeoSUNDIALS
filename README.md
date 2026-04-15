@@ -124,6 +124,7 @@ sensitivity analysis, or production-scale APIs.
 | `python/NeoSUNDIALS/` | Python workflows, problems, ctypes bindings |
 | `tests/` | C unit tests, Python workflow tests, and integration/verification tests |
 | `EXTRACTION_NOTES.md` | Upstream algorithm mappings |
+| [PORTING_ROADMAP.md](PORTING_ROADMAP.md) | Staged roadmap for porting more SUNDIALS concepts into NeoSUNDIALS |
 | [TODO.md](TODO.md) | Development roadmap |
 | [CHANGELOG.md](CHANGELOG.md) | Version history |
 

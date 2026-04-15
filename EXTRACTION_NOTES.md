@@ -7,6 +7,7 @@
 - [DAE Residual Path](#dae-residual-path)
 - [Behavioral Guarantees](#behavioral-guarantees)
 - [Known Gaps And Intentional Non-Goals](#known-gaps-and-intentional-non-goals)
+- [Roadmap Inputs From SUNDIALS Documentation](#roadmap-inputs-from-sundials-documentation)
 - [Porting Conventions](#porting-conventions)
 - [Testing Matrix](#testing-matrix)
 
@@ -168,6 +169,29 @@ variable classification, no constraints, and no root/event handling.
 - Only the serial NVector backend is in scope.
 - Interpolation is workflow-owned and endpoint-based, not a full clone of
   SUNDIALS dense output internals.
+
+## Roadmap Inputs From SUNDIALS Documentation
+
+The current porting roadmap is informed by the SUNDIALS guides for shared
+infrastructure and package solvers. The most important architectural lesson is
+that upstream SUNDIALS separates package time integrators from shared vector,
+matrix, linear solver, nonlinear solver, memory, adaptivity, and Python binding
+infrastructure. NeoSUNDIALS should keep those concepts embedded until a second
+or third vertical slice creates real duplication pressure, then promote only the
+minimal internal interface needed by the extracted code.
+
+Documents reviewed for the roadmap include:
+
+- the SUNDIALS superbuild overview and getting-started guide,
+- `N_Vector`, `SUNMatrix`, `SUNLinearSolver`, `SUNNonlinearSolver`,
+  `SUNMemory`, `SUNAdaptController`, and `SUNStepper` guides,
+- ARKODE introduction, organization, and mathematics guides,
+- CVODE and IDA mathematics guides,
+- CVODES and IDAS sensitivity usage guides,
+- KINSOL introduction and mathematics guides.
+
+See [PORTING_ROADMAP.md](PORTING_ROADMAP.md) for the staged plan that follows
+from these documents.
 
 ## Porting Conventions
 
