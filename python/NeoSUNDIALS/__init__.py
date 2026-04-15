@@ -22,12 +22,22 @@ from .ark_workflow import (
     solve_ark_problem_uniform,
 )
 from .numerics import cubic_hermite_interpolate, linear_interpolate, uniform_output_times, validate_output_times
-from .problems import brusselator_problem, linear_decay_problem, lotka_volterra_problem, robertson_problem, van_der_pol_problem
+from .problems import (
+    brusselator_problem,
+    dae_linear_decay_problem,
+    linear_decay_problem,
+    lotka_volterra_problem,
+    robertson_problem,
+    van_der_pol_problem,
+)
 from .workflow import (
+    DAEProblem,
     ODEProblem,
     RunResult,
     SolverConfig,
     compute_reference_error,
+    solve_dae_problem,
+    solve_dae_problem_uniform,
     solve_problem,
     solve_problem_uniform,
 )
@@ -38,6 +48,7 @@ __all__ = [
     "ARKSolverConfig",
     "DIRK_BACKWARD_EULER",
     "DIRK_IMPLICIT_MIDPOINT",
+    "DAEProblem",
     "ODEProblem",
     "ERK_BOGACKI_SHAMPINE",
     "ERK_EXPLICIT_MIDPOINT",
@@ -53,6 +64,7 @@ __all__ = [
     "ark_method_gallery",
     "ark_van_der_pol_problem",
     "brusselator_problem",
+    "dae_linear_decay_problem",
     "compute_ark_reference_error",
     "compute_reference_error",
     "cubic_hermite_interpolate",
@@ -60,6 +72,8 @@ __all__ = [
     "linear_interpolate",
     "lotka_volterra_problem",
     "robertson_problem",
+    "solve_dae_problem",
+    "solve_dae_problem_uniform",
     "solve_ark_problem",
     "solve_ark_problem_uniform",
     "solve_problem",

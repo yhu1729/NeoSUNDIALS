@@ -48,6 +48,7 @@ The extracted implementation currently includes:
 | Area | Entry points | Contract |
 |------|--------------|----------|
 | SBDF workflow | `python/NeoSUNDIALS/workflow.py` | Raises Python exceptions on invalid setup and native nonzero return codes. |
+| DAE workflow (experimental) | `python/NeoSUNDIALS/workflow.py` (`DAEProblem`, `solve_dae_problem`) | Accepts residual form `F(t,y,ydot)=0` and numerically recovers `ydot` in the Python bridge before SBDF stepping. |
 | ARK workflow | `python/NeoSUNDIALS/ark_workflow.py` | Same error model as SBDF workflow. |
 | Native bridges | `python/NeoSUNDIALS/native.py`, `python/NeoSUNDIALS/ark_native.py` | Uses `ctypes`; validates callback output shapes/finiteness and surfaces callback failures through descriptive Python exceptions. |
 
@@ -62,6 +63,7 @@ feature completeness. It currently includes:
 - Newton correction with dense linear solves
 - finite-difference Jacobian fallback
 - adaptive step-size control with simplified BDF1/BDF2 order selection
+- experimental DAE residual workflow (`F(t,y,ydot)=0`) layered through Python
 - ARKODE-style stage-based Runge-Kutta stepping
 - built-in explicit and diagonally implicit Butcher tables
 - step-doubling error estimation and adaptive step control

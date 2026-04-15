@@ -16,6 +16,7 @@ from .numerics import (
 
 
 ArrayFn = Callable[[float, np.ndarray], np.ndarray]
+ResidualFn = Callable[[float, np.ndarray, np.ndarray], np.ndarray]
 
 
 @dataclass
@@ -26,6 +27,17 @@ class ODEProblem:
     initial_state: np.ndarray
     rhs: ArrayFn
     jacobian: ArrayFn | None = None
+    exact_solution: ExactSolutionFn | None = None
+
+
+@dataclass
+class DAEProblem:
+    name: str
+    dimension: int
+    initial_time: float
+    initial_state: np.ndarray
+    residual: ResidualFn
+    initial_ydot: np.ndarray | None = None
     exact_solution: ExactSolutionFn | None = None
 
 
@@ -97,6 +109,150 @@ class RunResult:
     output_states: np.ndarray
     step_history: list[StepRecord]
     summary: RunSummary
+
+
+def _solve_residual_for_ydot(
+    residual: ResidualFn,
+    t: float,
+    y: np.ndarray,
+    ydot_guess: np.ndarray,
+    *,
+    max_iters: int = 8,
+    tol: float = 1e-10,
+) -> np.ndarray:
+    dim = y.shape[0]
+    ydot = np.asarray(ydot_guess, dtype=np.float64).copy()
+    eps = 1e-8
+
+    for _ in range(max_iters):
+        res = np.asarray(residual(t, y, ydot), dtype=np.float64)
+        if res.shape != (dim,):
+            raise ValueError(f"Residual callback must return shape ({dim},), got {res.shape}")
+        if not np.all(np.isfinite(res)):
+            raise ValueError("Residual callback returned non-finite values")
+        if np.linalg.norm(res, ord=2) <= tol:
+            return ydot
+
+        jac = np.zeros((dim, dim), dtype=np.float64)
+        for j in range(dim):
+            trial = ydot.copy()
+            delta = eps * (1.0 + abs(ydot[j]))
+            trial[j] += delta
+            res_p = np.asarray(residual(t, y, trial), dtype=np.float64)
+            if res_p.shape != (dim,):
+                raise ValueError(f"Residual callback must return shape ({dim},), got {res_p.shape}")
+            if not np.all(np.isfinite(res_p)):
+                raise ValueError("Residual callback returned non-finite values")
+            jac[:, j] = (res_p - res) / delta
+
+        try:
+            delta_ydot = np.linalg.solve(jac, -res)
+        except np.linalg.LinAlgError as exc:
+            raise RuntimeError("Failed to solve residual Jacobian system for ydot") from exc
+        ydot += delta_ydot
+        if np.linalg.norm(delta_ydot, ord=2) <= tol:
+            return ydot
+
+    raise RuntimeError("Residual Newton solve did not converge")
+
+
+def _make_residual_rhs_and_jac(problem: DAEProblem) -> tuple[ArrayFn, ArrayFn]:
+    dim = int(problem.dimension)
+    if dim <= 0:
+        raise ValueError("DAE problem dimension must be positive")
+
+    if problem.initial_ydot is None:
+        ydot_state = np.zeros(dim, dtype=np.float64)
+    else:
+        ydot_state = np.asarray(problem.initial_ydot, dtype=np.float64).copy()
+    if ydot_state.shape != (dim,):
+        raise ValueError(f"Initial ydot must have shape ({dim},), got {ydot_state.shape}")
+
+    def rhs(t: float, y: np.ndarray) -> np.ndarray:
+        y_vec = np.asarray(y, dtype=np.float64)
+        if y_vec.shape != (dim,):
+            raise ValueError(f"State passed to DAE residual has shape {y_vec.shape}, expected ({dim},)")
+        return _solve_residual_for_ydot(problem.residual, float(t), y_vec, ydot_state)
+
+    def jacobian(t: float, y: np.ndarray) -> np.ndarray:
+        t_f = float(t)
+        y_vec = np.asarray(y, dtype=np.float64)
+        if y_vec.shape != (dim,):
+            raise ValueError(f"State passed to DAE residual has shape {y_vec.shape}, expected ({dim},)")
+
+        ydot = _solve_residual_for_ydot(problem.residual, t_f, y_vec, ydot_state)
+        f0 = np.asarray(problem.residual(t_f, y_vec, ydot), dtype=np.float64)
+        if f0.shape != (dim,):
+            raise ValueError(f"Residual callback must return shape ({dim},), got {f0.shape}")
+        if not np.all(np.isfinite(f0)):
+            raise ValueError("Residual callback returned non-finite values")
+
+        dF_dy = np.zeros((dim, dim), dtype=np.float64)
+        dF_dydot = np.zeros((dim, dim), dtype=np.float64)
+        eps = 1e-8
+
+        for j in range(dim):
+            delta_y = eps * (1.0 + abs(y_vec[j]))
+            y_trial = y_vec.copy()
+            y_trial[j] += delta_y
+            f_y = np.asarray(problem.residual(t_f, y_trial, ydot), dtype=np.float64)
+            if f_y.shape != (dim,):
+                raise ValueError(f"Residual callback must return shape ({dim},), got {f_y.shape}")
+            dF_dy[:, j] = (f_y - f0) / delta_y
+
+            delta_ydot = eps * (1.0 + abs(ydot[j]))
+            ydot_trial = ydot.copy()
+            ydot_trial[j] += delta_ydot
+            f_ydot = np.asarray(problem.residual(t_f, y_vec, ydot_trial), dtype=np.float64)
+            if f_ydot.shape != (dim,):
+                raise ValueError(f"Residual callback must return shape ({dim},), got {f_ydot.shape}")
+            dF_dydot[:, j] = (f_ydot - f0) / delta_ydot
+
+        try:
+            return -np.linalg.solve(dF_dydot, dF_dy)
+        except np.linalg.LinAlgError as exc:
+            raise RuntimeError("Failed to recover DAE Jacobian from residual derivatives") from exc
+
+    return rhs, jacobian
+
+
+def solve_dae_problem(problem: DAEProblem, config: SolverConfig, output_times=None) -> RunResult:
+    # Residual-based DAE mode is currently stabilized on BDF1 while the
+    # dedicated DAE coefficient/history path is still being extracted.
+    dae_config = SolverConfig(
+        t_final=config.t_final,
+        rtol=max(config.rtol, 1e-5),
+        atol=max(config.atol, 1e-8),
+        h_init=config.h_init,
+        h_min=max(config.h_min, 1e-8),
+        h_max=config.h_max,
+        max_order=1,
+        max_steps=max(config.max_steps, 200000),
+        max_newton_iters=config.max_newton_iters,
+        safety=config.safety,
+        min_factor=config.min_factor,
+        max_factor=config.max_factor,
+        newton_tol=max(config.newton_tol, 0.2),
+    )
+    rhs_fn, jac_fn = _make_residual_rhs_and_jac(problem)
+    ode_problem = ODEProblem(
+        name=problem.name,
+        dimension=problem.dimension,
+        initial_time=problem.initial_time,
+        initial_state=np.asarray(problem.initial_state, dtype=np.float64),
+        rhs=rhs_fn,
+        jacobian=jac_fn,
+        exact_solution=problem.exact_solution,
+    )
+    return solve_problem(ode_problem, dae_config, output_times=output_times)
+
+
+def solve_dae_problem_uniform(problem: DAEProblem, config: SolverConfig, num_points: int = 101) -> RunResult:
+    return solve_dae_problem(
+        problem,
+        config,
+        output_times=uniform_output_times(problem.initial_time, config.t_final, num_points),
+    )
 
 
 def solve_problem_uniform(problem: ODEProblem, config: SolverConfig, num_points: int = 101) -> RunResult:

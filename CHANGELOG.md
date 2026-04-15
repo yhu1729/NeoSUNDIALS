@@ -8,6 +8,13 @@
 - `make test` for full suite.
 
 ## Unreleased
+- [0.4.0] DAE Workflow Vertical Slice
+  - Added experimental residual-form DAE workflow in `python/NeoSUNDIALS/workflow.py`:
+    - `DAEProblem`, `solve_dae_problem`, `solve_dae_problem_uniform`.
+    - residual-to-RHS bridge using a Newton solve for `ydot` from `F(t,y,ydot)=0`.
+  - Added `dae_linear_decay_problem` in `python/NeoSUNDIALS/problems.py`.
+  - Exported DAE APIs from `python/NeoSUNDIALS/__init__.py`.
+  - Added workflow tests for DAE nominal solve and residual failure handling.
 - [0.3.0] Test Suite Overhaul
   - Unified `make check`: Builds libs/tests, runs full Python-verified suite (C integration + Python unit/verification).
   - `tests/test_c_integration.py`: Launches C exes, verifies PASS/0 exit from Python.

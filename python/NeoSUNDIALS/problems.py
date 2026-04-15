@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from .workflow import ODEProblem
+from .workflow import DAEProblem, ODEProblem
 
 
 def linear_decay_problem(rate: float = 2.0, initial_value: float = 1.0) -> ODEProblem:
@@ -145,4 +145,22 @@ def robertson_problem() -> ODEProblem:
         initial_state=np.array([1.0, 0.0, 0.0], dtype=np.float64),
         rhs=rhs,
         jacobian=jac,
+    )
+
+
+def dae_linear_decay_problem(rate: float = 2.0, initial_value: float = 1.0) -> DAEProblem:
+    def residual(_t: float, y: np.ndarray, ydot: np.ndarray) -> np.ndarray:
+        return np.array([ydot[0] + rate * y[0]], dtype=np.float64)
+
+    def exact_solution(t: float) -> np.ndarray:
+        return np.array([initial_value * np.exp(-rate * t)], dtype=np.float64)
+
+    return DAEProblem(
+        name="dae_linear_decay",
+        dimension=1,
+        initial_time=0.0,
+        initial_state=np.array([initial_value], dtype=np.float64),
+        residual=residual,
+        initial_ydot=np.array([-rate * initial_value], dtype=np.float64),
+        exact_solution=exact_solution,
     )
