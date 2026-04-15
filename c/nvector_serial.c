@@ -73,19 +73,22 @@ static double VL1Norm_serial(const double *x, sunindextype N) {
   return sum;
 }
 
-static double VWL2Norm_serial(const double *x, sunindextype N) {
+static double VWL2Norm_serial(const double *x, const double *w, sunindextype N) {
   double sum = 0.0;
-  for (sunindextype i = 0; i < N; i++) sum += x[i] * x[i];
+  for (sunindextype i = 0; i < N; i++) {
+    const double wx = x[i] * w[i];
+    sum += wx * wx;
+  }
   return sqrt(sum);
 }
 
 static double VWrmsNorm_serial(const double *x, const double *w, sunindextype N) {
   double sumsqw = 0.0;
-  double sumw = N;
   for (sunindextype i = 0; i < N; i++) {
-    sumsqw += x[i]*x[i];
+    const double wx = x[i] * w[i];
+    sumsqw += wx * wx;
   }
-  return sqrt(sumsqw / sumw);
+  return sqrt(sumsqw / N);
 }
 
 static void VAbs_serial(sunindextype N, const double *x, double *z) {
@@ -137,7 +140,10 @@ static void VCompare_serial(double c, const double *x, double *z, sunindextype N
 
 static double VWSqrSum_serial(const double *x, const double *w, sunindextype N) {
   double sum = 0.0;
-  for (sunindextype i = 0; i < N; i++) sum += x[i]*x[i];
+  for (sunindextype i = 0; i < N; i++) {
+    const double wx = x[i] * w[i];
+    sum += wx * wx;
+  }
   return sum;
 }
 
@@ -228,7 +234,7 @@ double N_VL1Norm_Serial(N_Vector x) {
 }
 
 double N_VWL2Norm_Serial(N_Vector x, N_Vector w) {
-  return VWL2Norm_serial(NV_DATA(x), NV_LENGTH(x));
+  return VWL2Norm_serial(NV_DATA(x), NV_DATA(w), NV_LENGTH(x));
 }
 
 double N_VWrmsNorm_Serial(N_Vector x, N_Vector w) {

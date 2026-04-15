@@ -7,8 +7,11 @@
 
 int main(void) {
   int status = 0;
-  N_Vector x, y, z;
-  double *xd, *yd, *zd;
+  N_Vector x, y, z, w;
+  double *xd, *yd, *zd, *wd;
+  double wnorm = 0.0;
+  double wl2 = 0.0;
+  double wsq = 0.0;
   sunindextype i;
 
   printf("NVector Serial Unit Tests\n");
@@ -55,17 +58,36 @@ int main(void) {
   printf("%s N_VAxpy_Serial\n", axpy_match ? "[PASS]" : "[FAIL]");
   if (!axpy_match) status = 1;
 
-  /* Test 5: WrmsNorm - RMS norm of 1..10 ~ 6.20483682293 */
-  double wnorm = N_VWrmsNorm_Serial(x, x);
-  printf("WrmsNorm(x,x) = %.12g\n", wnorm);
-  if (fabs(wnorm - 6.20483682293) > 1e-10) {
-    printf("[FAIL] N_VWrmsNorm_Serial\n");
+  /* Test 5: WrmsNorm with unit weights - RMS norm of 1..10 ~ 6.20483682293 */
+  w = N_VNew_Serial(NELEMS);
+  if (!w) {
+    printf("[FAIL] N_VNew_Serial for weights\n");
     status = 1;
   } else {
-    printf("[PASS] N_VWrmsNorm_Serial\n");
+    wd = N_VGetArrayPointer_Serial(w);
+    for (i = 0; i < NELEMS; i++) wd[i] = 1.0;
+    wnorm = N_VWrmsNorm_Serial(x, w);
+    printf("WrmsNorm(x,ones) = %.12g\n", wnorm);
+    if (fabs(wnorm - 6.20483682293) > 1e-10) {
+      printf("[FAIL] N_VWrmsNorm_Serial\n");
+      status = 1;
+    } else {
+      printf("[PASS] N_VWrmsNorm_Serial\n");
+    }
+
+    /* Test 6: Weighted WL2 and weighted square sum with non-uniform weights */
+    for (i = 0; i < NELEMS; i++) wd[i] = 1.0 / (double)(i + 1);
+    wl2 = N_VWL2Norm_Serial(x, w);
+    wsq = N_VWSqrSumLocal_Serial(x, w);
+    if (fabs(wl2 - sqrt((double)NELEMS)) > 1e-12 || fabs(wsq - (double)NELEMS) > 1e-12) {
+      printf("[FAIL] Weighted WL2/WSqr (%.12g, %.12g)\n", wl2, wsq);
+      status = 1;
+    } else {
+      printf("[PASS] Weighted WL2/WSqr\n");
+    }
   }
 
-  /* Test 6: Min/Max */
+  /* Test 7: Min/Max */
   double minv = N_VMin_Serial(x);
   double maxv = N_VMax_Serial(x);
   if (fabs(minv - 1.0) > 1e-14 || fabs(maxv - 10.0) > 1e-14) {
@@ -79,6 +101,7 @@ int main(void) {
   N_VDestroy_Serial(x);
   N_VDestroy_Serial(y);
   N_VDestroy_Serial(z);
+  N_VDestroy_Serial(w);
 
   printf("Tests %s (%d failures)\n", status ? "FAILED" : "PASSED", status);
   return status;
