@@ -31,24 +31,28 @@ endif
 
 SBDF_LIB := $(BUILD_DIR)/libsbdf_core.$(SHARED_EXT)
 ARKODE_LIB := $(BUILD_DIR)/libarkode_core.$(SHARED_EXT)
+NVECTOR_LIB := $(BUILD_DIR)/libnvector_serial.$(SHARED_EXT)
 SBDF_OBJ := $(OBJ_DIR)/sbdf_core.pic.o
 ARKODE_OBJ := $(OBJ_DIR)/arkode_core.pic.o
+NVECTOR_OBJ := $(OBJ_DIR)/nvector_serial.pic.o
 
 SBDF_TEST := $(TEST_BUILD_DIR)/test_sbdf_core
 ARKODE_TEST := $(TEST_BUILD_DIR)/test_arkode_core
+NVECTOR_TEST := $(TEST_BUILD_DIR)/test_nvector_serial
 
 .PHONY: all libs tests test clean help
 .PHONY: c-test python-test check
 
 all: libs tests
 
-libs: $(SBDF_LIB) $(ARKODE_LIB)
+libs: $(SBDF_LIB) $(ARKODE_LIB) $(NVECTOR_LIB)
 
-tests: $(SBDF_TEST) $(ARKODE_TEST)
+tests: $(SBDF_TEST) $(ARKODE_TEST) $(NVECTOR_TEST)
 
 c-test: tests
 	$(SBDF_TEST)
 	$(ARKODE_TEST)
+	$(NVECTOR_TEST)
 
 python-test: libs
 	$(PYTHON) ./run_python_tests.py
@@ -66,10 +70,16 @@ $(SBDF_OBJ): $(C_DIR)/sbdf_core.c $(C_DIR)/sbdf_core.h | $(OBJ_DIR)
 $(ARKODE_OBJ): $(C_DIR)/arkode_core.c $(C_DIR)/arkode_core.h | $(OBJ_DIR)
 	$(CC) $(CPPFLAGS) $(PIC_CFLAGS) -c $< -o $@
 
+$(NVECTOR_OBJ): $(C_DIR)/nvector_serial.c $(C_DIR)/nvector_serial.h | $(OBJ_DIR)
+	$(CC) $(CPPFLAGS) $(PIC_CFLAGS) -c $< -o $@
+
 $(SBDF_LIB): $(SBDF_OBJ) | $(BUILD_DIR)
 	$(CC) $(LDFLAGS) $(SHARED_LDFLAGS) $< $(LDLIBS) -o $@
 
 $(ARKODE_LIB): $(ARKODE_OBJ) | $(BUILD_DIR)
+	$(CC) $(LDFLAGS) $(SHARED_LDFLAGS) $< $(LDLIBS) -o $@
+
+$(NVECTOR_LIB): $(NVECTOR_OBJ) | $(BUILD_DIR)
 	$(CC) $(LDFLAGS) $(SHARED_LDFLAGS) $< $(LDLIBS) -o $@
 
 $(SBDF_TEST): $(TEST_DIR)/test_sbdf_core.c $(C_DIR)/sbdf_core.c $(C_DIR)/sbdf_core.h | $(TEST_BUILD_DIR)
@@ -77,6 +87,9 @@ $(SBDF_TEST): $(TEST_DIR)/test_sbdf_core.c $(C_DIR)/sbdf_core.c $(C_DIR)/sbdf_co
 
 $(ARKODE_TEST): $(TEST_DIR)/test_arkode_core.c $(C_DIR)/arkode_core.c $(C_DIR)/arkode_core.h | $(TEST_BUILD_DIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(TEST_DIR)/test_arkode_core.c $(C_DIR)/arkode_core.c $(LDFLAGS) $(LDLIBS) -o $@
+
+$(NVECTOR_TEST): $(TEST_DIR)/test_nvector_serial.c $(C_DIR)/nvector_serial.c $(C_DIR)/nvector_serial.h | $(TEST_BUILD_DIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(TEST_DIR)/test_nvector_serial.c $(C_DIR)/nvector_serial.c $(LDFLAGS) $(LDLIBS) -o $@
 
 clean:
 	rm -rf $(BUILD_DIR)

@@ -25,11 +25,13 @@ The repo has two main parts:
 
 The extracted implementation currently includes:
 
+- NVector serial layer (self-contained abstraction for vectors/ops).
 - compact C solver kernels for a simplified SBDF-style implicit multistep core
   and an ARKODE-style Runge-Kutta core
 - Python workflow code that loads the native libraries with `ctypes`, defines
   example problems, and runs verification examples
-- C unit tests and Python verification scripts
+- C unit tests (SBDF/ARK/NVector) and Python verification scripts
+- `CHANGELOG.md` tracking ports.
 
 ## Extracted Solver Scope
 
