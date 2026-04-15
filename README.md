@@ -48,7 +48,7 @@ The extracted implementation currently includes:
 | Area | Entry points | Contract |
 |------|--------------|----------|
 | SBDF workflow | `python/NeoSUNDIALS/workflow.py` | Raises Python exceptions on invalid setup and native nonzero return codes. |
-| DAE workflow (experimental) | `python/NeoSUNDIALS/workflow.py` (`DAEProblem`, `solve_dae_problem`) | Accepts residual form `F(t,y,ydot)=0` and numerically recovers `ydot` in the Python bridge before SBDF stepping. |
+| DAE workflow (experimental) | `python/NeoSUNDIALS/workflow.py` (`DAEProblem`, `solve_dae_problem`) | Accepts residual form `F(t,y,ydot)=0`, attempts native residual stepping, and currently falls back to Python residual-bridge solve on native convergence/work-limit failures. |
 | ARK workflow | `python/NeoSUNDIALS/ark_workflow.py` | Same error model as SBDF workflow. |
 | Native bridges | `python/NeoSUNDIALS/native.py`, `python/NeoSUNDIALS/ark_native.py` | Uses `ctypes`; validates callback output shapes/finiteness and surfaces callback failures through descriptive Python exceptions. |
 

@@ -77,6 +77,14 @@ JAC_CALLBACK = ctypes.CFUNCTYPE(
     ctypes.POINTER(ctypes.c_double),
     ctypes.c_void_p,
 )
+RESIDUAL_CALLBACK = ctypes.CFUNCTYPE(
+    ctypes.c_int,
+    ctypes.c_double,
+    ctypes.POINTER(ctypes.c_double),
+    ctypes.POINTER(ctypes.c_double),
+    ctypes.POINTER(ctypes.c_double),
+    ctypes.c_void_p,
+)
 
 
 def _shared_library_name() -> str:
@@ -134,6 +142,13 @@ def load_native_library() -> ctypes.CDLL:
 
     lib.sbdf_step.argtypes = [state_ptr, RHS_CALLBACK, JAC_CALLBACK, ctypes.c_void_p, ctypes.POINTER(SBDFStepStats)]
     lib.sbdf_step.restype = ctypes.c_int
+    lib.sbdf_step_residual.argtypes = [
+        state_ptr,
+        RESIDUAL_CALLBACK,
+        ctypes.c_void_p,
+        ctypes.POINTER(SBDFStepStats),
+    ]
+    lib.sbdf_step_residual.restype = ctypes.c_int
 
     lib.sbdf_get_state.argtypes = [state_ptr, ctypes.POINTER(ctypes.c_double)]
     lib.sbdf_get_state.restype = ctypes.c_int
@@ -250,6 +265,102 @@ class NativeSolver:
             if self._last_callback_error is not None:
                 raise RuntimeError(f"Native SBDF step failed with status {flag}: {self._last_callback_error}")
             raise RuntimeError(f"Native SBDF step failed with status {flag}")
+        return NativeStep(
+            step_index=stats.step_index,
+            order=stats.order,
+            newton_iters=stats.newton_iters,
+            t_start=stats.t_start,
+            t_end=stats.t_end,
+            h_used=stats.h_used,
+            h_next=stats.h_next,
+            error_norm=stats.error_norm,
+            newton_norm=stats.newton_norm,
+        )
+
+    def time(self) -> float:
+        return float(self._lib.sbdf_get_time(self._state))
+
+    def set_step_size(self, h: float) -> None:
+        flag = self._lib.sbdf_set_step_size(self._state, ctypes.c_double(h))
+        if flag != 0:
+            raise RuntimeError(f"Failed to set step size: {flag}")
+
+    def state(self) -> np.ndarray:
+        output = np.empty(self._dim, dtype=np.float64)
+        flag = self._lib.sbdf_get_state(self._state, output.ctypes.data_as(ctypes.POINTER(ctypes.c_double)))
+        if flag != 0:
+            raise RuntimeError(f"Failed to fetch native state: {flag}")
+        return output
+
+    def summary(self) -> NativeSummary:
+        summary = SBDFSummary()
+        flag = self._lib.sbdf_get_summary(self._state, ctypes.byref(summary))
+        if flag != 0:
+            raise RuntimeError(f"Failed to fetch summary: {flag}")
+        return NativeSummary(
+            steps=summary.steps,
+            accepted_steps=summary.accepted_steps,
+            rejected_steps=summary.rejected_steps,
+            rhs_evals=summary.rhs_evals,
+            jac_evals=summary.jac_evals,
+            newton_iters=summary.newton_iters,
+            current_t=summary.current_t,
+            current_h=summary.current_h,
+            last_error_norm=summary.last_error_norm,
+            last_newton_norm=summary.last_newton_norm,
+        )
+
+
+class NativeDAESolver:
+    def __init__(self, config: SBDFConfig, t0: float, y0: np.ndarray, residual):
+        self._lib = load_native_library()
+        self._dim = int(config.dimension)
+        self._residual_python = residual
+        self._last_callback_error: str | None = None
+
+        self._residual_cb = RESIDUAL_CALLBACK(self._residual_bridge)
+        y0 = np.asarray(y0, dtype=np.float64)
+        if y0.shape != (self._dim,):
+            raise ValueError(f"Initial state must have shape ({self._dim},), got {y0.shape}")
+        self._state = self._lib.sbdf_create(
+            ctypes.byref(config),
+            ctypes.c_double(t0),
+            y0.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
+        )
+        if not self._state:
+            raise MemoryError("Failed to create native SBDF DAE solver state")
+
+    def __del__(self):
+        state = getattr(self, "_state", None)
+        if state:
+            self._lib.sbdf_free(state)
+            self._state = None
+
+    def _residual_bridge(self, t, y_ptr, ydot_ptr, residual_ptr, _user_data):
+        try:
+            y = np.ctypeslib.as_array(y_ptr, shape=(self._dim,))
+            ydot = np.ctypeslib.as_array(ydot_ptr, shape=(self._dim,))
+            residual = np.ctypeslib.as_array(residual_ptr, shape=(self._dim,))
+            res_val = np.asarray(self._residual_python(float(t), y.copy(), ydot.copy()), dtype=np.float64)
+            if res_val.shape != (self._dim,):
+                raise ValueError(f"Residual callback must return shape ({self._dim},), got {res_val.shape}")
+            if not np.all(np.isfinite(res_val)):
+                raise ValueError("Residual callback returned non-finite values")
+            residual[:] = res_val
+            self._last_callback_error = None
+            return 0
+        except Exception as exc:
+            self._last_callback_error = f"Residual callback failed at t={float(t):.16g}: {exc}"
+            return -1
+
+    def step(self) -> NativeStep:
+        stats = SBDFStepStats()
+        self._last_callback_error = None
+        flag = self._lib.sbdf_step_residual(self._state, self._residual_cb, None, ctypes.byref(stats))
+        if flag != 0:
+            if self._last_callback_error is not None:
+                raise RuntimeError(f"Native SBDF residual step failed with status {flag}: {self._last_callback_error}")
+            raise RuntimeError(f"Native SBDF residual step failed with status {flag}")
         return NativeStep(
             step_index=stats.step_index,
             order=stats.order,

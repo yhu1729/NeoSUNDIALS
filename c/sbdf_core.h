@@ -7,6 +7,8 @@ extern "C" {
 
 typedef int (*sbdf_rhs_fn)(double t, const double* y, double* dydt, void* user_data);
 typedef int (*sbdf_jac_fn)(double t, const double* y, double* jacobian, void* user_data);
+typedef int (*sbdf_res_fn)(double t, const double* y, const double* ydot, double* residual,
+                           void* user_data);
 
 typedef struct
 {
@@ -61,6 +63,8 @@ void sbdf_free(SBDFState* state);
 
 int sbdf_step(SBDFState* state, sbdf_rhs_fn rhs, sbdf_jac_fn jac, void* user_data,
               SBDFStepStats* stats);
+int sbdf_step_residual(SBDFState* state, sbdf_res_fn residual, void* user_data,
+                       SBDFStepStats* stats);
 
 int sbdf_get_state(const SBDFState* state, double* out_y);
 int sbdf_get_summary(const SBDFState* state, SBDFSummary* summary);

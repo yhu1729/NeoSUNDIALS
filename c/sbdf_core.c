@@ -85,6 +85,14 @@ static int sbdf_eval_rhs(SBDFState* state, sbdf_rhs_fn rhs, void* user_data, dou
   return flag;
 }
 
+static int sbdf_eval_residual(SBDFState* state, sbdf_res_fn residual, void* user_data, double t,
+                              const double* y, const double* ydot, double* out_residual)
+{
+  const int flag = residual(t, y, ydot, out_residual, user_data);
+  state->rhs_evals += 1;
+  return flag;
+}
+
 static int sbdf_solve_dense(int n, double* matrix, double* rhs, int* pivots)
 {
   int i;
@@ -374,6 +382,97 @@ static int sbdf_attempt_step(SBDFState* state, int order, double h, sbdf_rhs_fn 
   return SBDF_OK;
 }
 
+static int sbdf_attempt_step_residual(SBDFState* state, int order, double h, sbdf_res_fn residual,
+                                      void* user_data, double* y_out, double* error_proxy,
+                                      double* newton_norm, int* iters_out)
+{
+  const int n = state->dimension;
+  double alpha[SBDF_MAX_ORDER + 1];
+  int iter;
+  int i;
+
+  sbdf_predict_state(state, order, h, state->work_a);
+  sbdf_copy(n, state->work_a, y_out);
+
+  if (sbdf_compute_derivative_weights(order, h, state->step_hist, alpha, state->pivots) !=
+      SBDF_OK)
+  {
+    return SBDF_ERR_CONVERGENCE;
+  }
+
+  for (iter = 0; iter < state->config.max_newton_iters; ++iter)
+  {
+    int j;
+
+    for (i = 0; i < n; ++i)
+    {
+      int hist;
+      double numerator = alpha[0] * y_out[i];
+      for (hist = 1; hist <= order; ++hist) { numerator += alpha[hist] * state->y_hist[hist - 1][i]; }
+      state->work_b[i] = numerator / h; /* ydot */
+    }
+
+    if (sbdf_eval_residual(state, residual, user_data, state->t + h, y_out, state->work_b,
+                           state->work_c) != 0)
+    {
+      return SBDF_ERR_CALLBACK;
+    }
+    for (i = 0; i < n; ++i) { state->rhs_vec[i] = -state->work_c[i]; }
+
+    for (j = 0; j < n; ++j)
+    {
+      const double base = y_out[j];
+      const double delta = 1e-8 * (1.0 + sbdf_abs(base));
+      sbdf_copy(n, y_out, state->work_d);
+      state->work_d[j] += delta;
+
+      for (i = 0; i < n; ++i)
+      {
+        int hist;
+        double numerator = alpha[0] * state->work_d[i];
+        for (hist = 1; hist <= order; ++hist)
+        {
+          numerator += alpha[hist] * state->y_hist[hist - 1][i];
+        }
+        state->work_e[i] = numerator / h; /* ydot for perturbed state */
+      }
+
+      if (sbdf_eval_residual(state, residual, user_data, state->t + h, state->work_d,
+                             state->work_e, state->jacobian_buf) != 0)
+      {
+        return SBDF_ERR_CALLBACK;
+      }
+
+      for (i = 0; i < n; ++i)
+      {
+        state->matrix[i * n + j] = (state->jacobian_buf[i] - state->work_c[i]) / delta;
+      }
+    }
+    state->jac_evals += 1;
+
+    if (sbdf_solve_dense(n, state->matrix, state->rhs_vec, state->pivots) != SBDF_OK)
+    {
+      return SBDF_ERR_CONVERGENCE;
+    }
+
+    sbdf_axpy(n, 1.0, state->rhs_vec, y_out);
+    *newton_norm =
+      sbdf_wrms_norm(n, state->rhs_vec, y_out, state->config.rtol, state->config.atol);
+    if (*newton_norm <= state->config.newton_tol)
+    {
+      *iters_out = iter + 1;
+      break;
+    }
+  }
+
+  if (iter == state->config.max_newton_iters) { return SBDF_ERR_CONVERGENCE; }
+
+  for (i = 0; i < n; ++i) { state->work_e[i] = y_out[i] - state->work_a[i]; }
+  *error_proxy =
+    sbdf_wrms_norm(n, state->work_e, y_out, state->config.rtol, state->config.atol);
+  return SBDF_OK;
+}
+
 static void sbdf_accept_step(SBDFState* state, const double* y_new, double h, int order)
 {
   double* old_last = state->y_hist[SBDF_MAX_ORDER - 1];
@@ -519,6 +618,110 @@ int sbdf_step(SBDFState* state, sbdf_rhs_fn rhs, sbdf_jac_fn jac, void* user_dat
         {
           state->work_e[i] = state->work_d[i] - state->work_c[i];
         }
+        y2_norm = sbdf_wrms_norm(state->dimension, state->work_e, state->work_d,
+                                 state->config.rtol, state->config.atol);
+      }
+      else
+      {
+        have_order2 = 0;
+      }
+    }
+
+    if (have_order2 && y2_norm <= 1.0)
+    {
+      accepted_order = 2;
+      accepted_error = y2_norm;
+      accepted_newton = newton2;
+      sbdf_accept_step(state, state->work_d, h, 2);
+      state->newton_iters += iters2;
+    }
+    else if (y1_norm <= 1.0)
+    {
+      accepted_order = 1;
+      accepted_error = y1_norm;
+      accepted_newton = newton1;
+      sbdf_accept_step(state, state->work_c, h, 1);
+      state->newton_iters += iters1;
+    }
+    else
+    {
+      const double best_error = have_order2 ? (y2_norm < y1_norm ? y2_norm : y1_norm) : y1_norm;
+      const double exponent = have_order2 && y2_norm < y1_norm ? (1.0 / 3.0) : 0.5;
+      next_factor = state->config.safety * pow(best_error, -exponent);
+      next_factor = sbdf_clamp(next_factor, state->config.min_factor, 0.8);
+      state->h = sbdf_clamp(h * next_factor, state->config.h_min, state->config.h_max);
+      state->rejected_steps += 1;
+      local_retries += 1;
+      if (state->h <= state->config.h_min + 1e-18) { return SBDF_ERR_CONVERGENCE; }
+      continue;
+    }
+
+    next_factor = state->config.safety *
+                  pow(accepted_error < 1e-12 ? 1e-12 : accepted_error,
+                      accepted_order == 1 ? -0.5 : -1.0 / 3.0);
+    next_factor =
+      sbdf_clamp(next_factor, state->config.min_factor, state->config.max_factor);
+    state->h = sbdf_clamp(h * next_factor, state->config.h_min, state->config.h_max);
+
+    state->step_index += 1;
+    state->last_error_norm = accepted_error;
+    state->last_newton_norm = accepted_newton;
+
+    stats->step_index = state->step_index;
+    stats->accepted = 1;
+    stats->order = accepted_order;
+    stats->newton_iters = accepted_order == 1 ? iters1 : iters2;
+    stats->t_start = state->t - h;
+    stats->t_end = state->t;
+    stats->h_used = h;
+    stats->h_next = state->h;
+    stats->error_norm = accepted_error;
+    stats->newton_norm = accepted_newton;
+    return SBDF_OK;
+  }
+
+  return SBDF_ERR_CONVERGENCE;
+}
+
+int sbdf_step_residual(SBDFState* state, sbdf_res_fn residual, void* user_data,
+                       SBDFStepStats* stats)
+{
+  double h;
+  int local_retries = 0;
+
+  if (state == NULL || residual == NULL || stats == NULL) { return SBDF_ERR_INPUT; }
+  if (state->step_index >= state->config.max_steps) { return SBDF_ERR_WORK_LIMIT; }
+
+  while (local_retries < 12)
+  {
+    double y1_norm = 0.0;
+    double y2_norm = 0.0;
+    double newton1 = 0.0;
+    double newton2 = 0.0;
+    int iters1 = 0;
+    int iters2 = 0;
+    int have_order2 = 0;
+    int status1;
+    int status2 = SBDF_ERR_CONVERGENCE;
+    int accepted_order;
+    double accepted_error;
+    double accepted_newton;
+    double next_factor;
+
+    h = sbdf_clamp(state->h, state->config.h_min, state->config.h_max);
+    status1 = sbdf_attempt_step_residual(state, 1, h, residual, user_data, state->work_c,
+                                         &y1_norm, &newton1, &iters1);
+    if (status1 != SBDF_OK) { return status1; }
+
+    have_order2 = state->config.max_order >= 2 && state->history_len >= 2;
+    if (have_order2)
+    {
+      status2 = sbdf_attempt_step_residual(state, 2, h, residual, user_data, state->work_d,
+                                           &y2_norm, &newton2, &iters2);
+      if (status2 == SBDF_OK)
+      {
+        int i;
+        for (i = 0; i < state->dimension; ++i) { state->work_e[i] = state->work_d[i] - state->work_c[i]; }
         y2_norm = sbdf_wrms_norm(state->dimension, state->work_e, state->work_d,
                                  state->config.rtol, state->config.atol);
       }

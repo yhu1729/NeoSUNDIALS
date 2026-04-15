@@ -12,6 +12,8 @@
   - Added experimental residual-form DAE workflow in `python/NeoSUNDIALS/workflow.py`:
     - `DAEProblem`, `solve_dae_problem`, `solve_dae_problem_uniform`.
     - residual-to-RHS bridge using a Newton solve for `ydot` from `F(t,y,ydot)=0`.
+  - Added native residual-step entry point in `c/sbdf_core.[ch]` (`sbdf_step_residual`) and Python binding support in `python/NeoSUNDIALS/native.py`.
+  - DAE workflow now attempts native residual stepping first and falls back to the Python residual bridge when native path reports convergence/work-limit statuses.
   - Added `dae_linear_decay_problem` in `python/NeoSUNDIALS/problems.py`.
   - Exported DAE APIs from `python/NeoSUNDIALS/__init__.py`.
   - Added workflow tests for DAE nominal solve and residual failure handling.

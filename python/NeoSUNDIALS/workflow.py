@@ -5,7 +5,7 @@ from typing import Callable
 
 import numpy as np
 
-from .native import NativeSolver, SBDFConfig
+from .native import NativeDAESolver, NativeSolver, SBDFConfig
 from .numerics import (
     ExactSolutionFn,
     linear_interpolate,
@@ -217,34 +217,112 @@ def _make_residual_rhs_and_jac(problem: DAEProblem) -> tuple[ArrayFn, ArrayFn]:
 
 
 def solve_dae_problem(problem: DAEProblem, config: SolverConfig, output_times=None) -> RunResult:
-    # Residual-based DAE mode is currently stabilized on BDF1 while the
-    # dedicated DAE coefficient/history path is still being extracted.
+    output_times = validate_output_times(problem.initial_time, config.t_final, output_times)
     dae_config = SolverConfig(
         t_final=config.t_final,
         rtol=max(config.rtol, 1e-5),
         atol=max(config.atol, 1e-8),
         h_init=config.h_init,
         h_min=max(config.h_min, 1e-8),
-        h_max=config.h_max,
+        h_max=min(config.h_max, 1e-3),
         max_order=1,
         max_steps=max(config.max_steps, 200000),
-        max_newton_iters=config.max_newton_iters,
+        max_newton_iters=max(config.max_newton_iters, 10),
         safety=config.safety,
         min_factor=config.min_factor,
         max_factor=config.max_factor,
         newton_tol=max(config.newton_tol, 0.2),
     )
-    rhs_fn, jac_fn = _make_residual_rhs_and_jac(problem)
-    ode_problem = ODEProblem(
-        name=problem.name,
-        dimension=problem.dimension,
-        initial_time=problem.initial_time,
-        initial_state=np.asarray(problem.initial_state, dtype=np.float64),
-        rhs=rhs_fn,
-        jacobian=jac_fn,
-        exact_solution=problem.exact_solution,
-    )
-    return solve_problem(ode_problem, dae_config, output_times=output_times)
+
+    try:
+        solver = NativeDAESolver(
+            config=dae_config.to_native(problem.dimension),
+            t0=problem.initial_time,
+            y0=np.asarray(problem.initial_state, dtype=np.float64),
+            residual=problem.residual,
+        )
+
+        step_history: list[StepRecord] = []
+        output_states = np.empty((len(output_times), problem.dimension), dtype=np.float64)
+        prev_t = problem.initial_time
+        prev_y = np.asarray(problem.initial_state, dtype=np.float64).copy()
+        output_index = 0
+
+        while output_index < len(output_times) and output_times[output_index] <= prev_t + 1e-15:
+            output_states[output_index] = prev_y
+            output_index += 1
+
+        while solver.time() < dae_config.t_final - 1e-15:
+            remaining = dae_config.t_final - solver.time()
+            if remaining <= 0.0:
+                break
+            solver.set_step_size(min(remaining, solver.summary().current_h, dae_config.h_max))
+            step = solver.step()
+            curr_t = solver.time()
+            curr_y = solver.state()
+
+            step_history.append(
+                StepRecord(
+                    step_index=step.step_index,
+                    order=step.order,
+                    t_start=step.t_start,
+                    t_end=step.t_end,
+                    h_used=step.h_used,
+                    h_next=step.h_next,
+                    error_norm=step.error_norm,
+                    newton_norm=step.newton_norm,
+                    newton_iters=step.newton_iters,
+                )
+            )
+
+            while output_index < len(output_times) and output_times[output_index] <= curr_t + 1e-15:
+                output_states[output_index] = linear_interpolate(
+                    prev_t, prev_y, curr_t, curr_y, output_times[output_index]
+                )
+                output_index += 1
+
+            prev_t = curr_t
+            prev_y = curr_y
+
+        while output_index < len(output_times):
+            output_states[output_index] = prev_y
+            output_index += 1
+
+        summary = solver.summary()
+        return RunResult(
+            problem_name=problem.name,
+            output_times=output_times,
+            output_states=output_states,
+            step_history=step_history,
+            summary=RunSummary(
+                steps=summary.steps,
+                accepted_steps=summary.accepted_steps,
+                rejected_steps=summary.rejected_steps,
+                rhs_evals=summary.rhs_evals,
+                jac_evals=summary.jac_evals,
+                newton_iters=summary.newton_iters,
+                current_t=summary.current_t,
+                current_h=summary.current_h,
+                last_error_norm=summary.last_error_norm,
+                last_newton_norm=summary.last_newton_norm,
+            ),
+        )
+    except RuntimeError as exc:
+        message = str(exc)
+        if "status -4" not in message and "status -5" not in message:
+            raise
+        # Fallback path while the native residual stepper is still hardening.
+        rhs_fn, jac_fn = _make_residual_rhs_and_jac(problem)
+        ode_problem = ODEProblem(
+            name=problem.name,
+            dimension=problem.dimension,
+            initial_time=problem.initial_time,
+            initial_state=np.asarray(problem.initial_state, dtype=np.float64),
+            rhs=rhs_fn,
+            jacobian=jac_fn,
+            exact_solution=problem.exact_solution,
+        )
+        return solve_problem(ode_problem, dae_config, output_times=output_times)
 
 
 def solve_dae_problem_uniform(problem: DAEProblem, config: SolverConfig, num_points: int = 101) -> RunResult:
