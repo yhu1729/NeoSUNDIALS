@@ -39,6 +39,10 @@ NVECTOR_OBJ := $(OBJ_DIR)/nvector_serial.pic.o
 SBDF_TEST := $(TEST_BUILD_DIR)/test_sbdf_core
 ARKODE_TEST := $(TEST_BUILD_DIR)/test_arkode_core
 NVECTOR_TEST := $(TEST_BUILD_DIR)/test_nvector_serial
+ARKODE_ADAPT_TEST := $(TEST_BUILD_DIR)/test_arkode_adapt
+ARKODE_INTERP_TEST := $(TEST_BUILD_DIR)/test_arkode_interp
+ARKODE_TSTOP_TEST := $(TEST_BUILD_DIR)/test_arkode_tstop
+ARKODE_RESET_TEST := $(TEST_BUILD_DIR)/test_arkode_reset
 
 .PHONY: all libs tests test clean help
 .PHONY: c-test python-test check
@@ -47,12 +51,16 @@ all: libs tests
 
 libs: $(SBDF_LIB) $(ARKODE_LIB) $(NVECTOR_LIB)
 
-tests: $(SBDF_TEST) $(ARKODE_TEST) $(NVECTOR_TEST)
+tests: $(SBDF_TEST) $(ARKODE_TEST) $(NVECTOR_TEST) $(ARKODE_ADAPT_TEST) $(ARKODE_INTERP_TEST) $(ARKODE_TSTOP_TEST) $(ARKODE_RESET_TEST)
 
 c-test: tests
 	$(SBDF_TEST)
 	$(ARKODE_TEST)
 	$(NVECTOR_TEST)
+	$(ARKODE_ADAPT_TEST)
+	$(ARKODE_INTERP_TEST)
+	$(ARKODE_TSTOP_TEST)
+	$(ARKODE_RESET_TEST)
 
 python-test: libs
 	$(PYTHON) ./run_python_tests.py
@@ -90,6 +98,18 @@ $(ARKODE_TEST): $(TEST_DIR)/test_arkode_core.c $(C_DIR)/arkode_core.c $(C_DIR)/a
 
 $(NVECTOR_TEST): $(TEST_DIR)/test_nvector_serial.c $(C_DIR)/nvector_serial.c $(C_DIR)/nvector_serial.h | $(TEST_BUILD_DIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(TEST_DIR)/test_nvector_serial.c $(C_DIR)/nvector_serial.c $(LDFLAGS) $(LDLIBS) -o $@
+
+$(ARKODE_ADAPT_TEST): $(TEST_DIR)/test_arkode_adapt.c $(C_DIR)/arkode_core.c $(C_DIR)/nvector_serial.c | $(TEST_BUILD_DIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(TEST_DIR)/test_arkode_adapt.c $(C_DIR)/arkode_core.c $(C_DIR)/nvector_serial.c $(LDFLAGS) $(LDLIBS) -o $@
+
+$(ARKODE_INTERP_TEST): $(TEST_DIR)/test_arkode_interp.c $(C_DIR)/arkode_core.c $(C_DIR)/nvector_serial.c | $(TEST_BUILD_DIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(TEST_DIR)/test_arkode_interp.c $(C_DIR)/arkode_core.c $(C_DIR)/nvector_serial.c $(LDFLAGS) $(LDLIBS) -o $@
+
+$(ARKODE_TSTOP_TEST): $(TEST_DIR)/test_arkode_tstop.c $(C_DIR)/arkode_core.c $(C_DIR)/nvector_serial.c | $(TEST_BUILD_DIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(TEST_DIR)/test_arkode_tstop.c $(C_DIR)/arkode_core.c $(C_DIR)/nvector_serial.c $(LDFLAGS) $(LDLIBS) -o $@
+
+$(ARKODE_RESET_TEST): $(TEST_DIR)/test_arkode_reset.c $(C_DIR)/arkode_core.c $(C_DIR)/nvector_serial.c | $(TEST_BUILD_DIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(TEST_DIR)/test_arkode_reset.c $(C_DIR)/arkode_core.c $(C_DIR)/nvector_serial.c $(LDFLAGS) $(LDLIBS) -o $@
 
 clean:
 	rm -rf $(BUILD_DIR)
