@@ -13,7 +13,7 @@ static int failures = 0;
 static void expect_true(int condition, const char* message)
 {
   if (!condition) {
-    fprintf(stderr, "FAILED: %s\\n", message);
+    fprintf(stderr, "FAILED: %s\n", message);
     failures++;
   }
 }
@@ -21,7 +21,7 @@ static void expect_true(int condition, const char* message)
 static void expect_close(double actual, double expected, double tol, const char* message)
 {
   if (fabs(actual - expected) > tol) {
-    fprintf(stderr, "FAILED: %s (actual=%g expected=%g tol=%g)\\n", message, actual, expected, tol);
+    fprintf(stderr, "FAILED: %s (actual=%g expected=%g tol=%g)\n", message, actual, expected, tol);
     failures++;
   }
 }
@@ -84,13 +84,13 @@ static void test_interp_harmonic(ARKMethodID method)
 
 int main(void)
 {
-  printf("ARKode interpolation test (ERK)\\n");
+  printf("ARKode interpolation test (ERK)\n");
   test_interp_harmonic(ARK_METHOD_ERK_RK4);
   
-  printf("ARKode interpolation test (DIRK)\\n");
+  printf("ARKode interpolation test (DIRK)\n");
   test_interp_harmonic(ARK_METHOD_DIRK_IMPLICIT_MIDPOINT);
 
-  printf("%s: %d failures\\n", failures ? "FAILED" : "PASSED", failures);
+  printf("%s: %d failures\n", failures ? "FAILED" : "PASSED", failures);
   return failures;
 }
 

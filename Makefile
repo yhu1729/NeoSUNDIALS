@@ -44,8 +44,7 @@ ARKODE_INTERP_TEST := $(TEST_BUILD_DIR)/test_arkode_interp
 ARKODE_TSTOP_TEST := $(TEST_BUILD_DIR)/test_arkode_tstop
 ARKODE_RESET_TEST := $(TEST_BUILD_DIR)/test_arkode_reset
 
-.PHONY: all libs tests test clean help
-.PHONY: c-test python-test check
+.PHONY: all libs tests clean help check
 
 all: libs tests
 
@@ -53,21 +52,9 @@ libs: $(SBDF_LIB) $(ARKODE_LIB) $(NVECTOR_LIB)
 
 tests: $(SBDF_TEST) $(ARKODE_TEST) $(NVECTOR_TEST) $(ARKODE_ADAPT_TEST) $(ARKODE_INTERP_TEST) $(ARKODE_TSTOP_TEST) $(ARKODE_RESET_TEST)
 
-c-test: tests
-	$(SBDF_TEST)
-	$(ARKODE_TEST)
-	$(NVECTOR_TEST)
-	$(ARKODE_ADAPT_TEST)
-	$(ARKODE_INTERP_TEST)
-	$(ARKODE_TSTOP_TEST)
-	$(ARKODE_RESET_TEST)
-
-python-test: libs
-	$(PYTHON) ./run_python_tests.py
-
-test: c-test python-test
-
-check: test
+check: libs tests
+	$(PYTHON) -m unittest discover tests -p test_*.py -v
+	@echo \"All tests passed!\"
 
 $(BUILD_DIR) $(OBJ_DIR) $(TEST_BUILD_DIR):
 	mkdir -p $@
@@ -120,8 +107,5 @@ help:
 	  '  make            Build shared libraries and C test executables' \
 	  '  make libs       Build libsbdf_core and libarkode_core for the Python bindings' \
 	  '  make tests      Build the C unit-test executables' \
-	  '  make c-test     Build and run the C unit tests' \
-	  '  make python-test Run Python unit tests and verification cases' \
-	  '  make test       Run the full C and Python test suite' \
-	  '  make check      Alias for make test' \
+	  '  make check      Build + run full test suite verified in Python' \
 	  '  make clean      Remove build artifacts'

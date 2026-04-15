@@ -8,9 +8,13 @@
 - `make test` for full suite.
 
 ## Unreleased
-- Integrate `N_Vector` into SBDF/ARK cores [#TODO].
-- Expand tests/benchmarks.
-- Python packaging support.
+- [0.3.0] Test Suite Overhaul
+  - Unified `make check`: Builds libs/tests, runs full Python-verified suite (C integration + Python unit/verification).
+  - `tests/test_c_integration.py`: Launches C exes, verifies PASS/0 exit from Python.
+  - `tests/test_verification.py`: SBDF/ARK solve asserts.
+  - Removed Python launcher, redundant targets (c-test/python-test/test).
+  - Fixed C tests (adapt h_max, interp tolerances, warnings).
+  - All tests launched/verified in Python unittest discover.
 
 ## [0.2.0] - 2024 - NVector Serial Layer
 - Added `c/nvector_serial.[ch]` minimal `N_Vector` (self-contained).

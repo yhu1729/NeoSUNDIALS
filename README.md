@@ -79,7 +79,7 @@ Useful targets:
 - `make libs`: build the shared libraries used by the Python bindings
 - `make tests`: build the C unit-test executables
 - `make c-test`: build and run the C unit tests
-- `make python-test`: run the Python unit tests and verification cases
+- `make python-test`: run full suite (C tests launched/verified from Python + Python unit/verification)
 - `make test`: run the full C and Python test suite
 - `make clean`: remove build artifacts
 
