@@ -1,4 +1,5 @@
 CC ?= cc
+PYTHON ?= $(shell if [ -x ./venv/bin/python ]; then printf '%s' ./venv/bin/python; else printf '%s' python3; fi)
 UNAME_S := $(shell uname -s 2>/dev/null)
 
 ROOT := .
@@ -37,6 +38,7 @@ SBDF_TEST := $(TEST_BUILD_DIR)/test_sbdf_core
 ARKODE_TEST := $(TEST_BUILD_DIR)/test_arkode_core
 
 .PHONY: all libs tests test clean help
+.PHONY: c-test python-test check
 
 all: libs tests
 
@@ -44,9 +46,16 @@ libs: $(SBDF_LIB) $(ARKODE_LIB)
 
 tests: $(SBDF_TEST) $(ARKODE_TEST)
 
-test: tests
+c-test: tests
 	$(SBDF_TEST)
 	$(ARKODE_TEST)
+
+python-test: libs
+	$(PYTHON) ./run_python_tests.py
+
+test: c-test python-test
+
+check: test
 
 $(BUILD_DIR) $(OBJ_DIR) $(TEST_BUILD_DIR):
 	mkdir -p $@
@@ -78,5 +87,8 @@ help:
 	  '  make            Build shared libraries and C test executables' \
 	  '  make libs       Build libsbdf_core and libarkode_core for the Python bindings' \
 	  '  make tests      Build the C unit-test executables' \
-	  '  make test       Build and run the C unit tests' \
+	  '  make c-test     Build and run the C unit tests' \
+	  '  make python-test Run Python unit tests and verification cases' \
+	  '  make test       Run the full C and Python test suite' \
+	  '  make check      Alias for make test' \
 	  '  make clean      Remove build artifacts'

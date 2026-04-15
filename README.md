@@ -55,9 +55,7 @@ sensitivity analysis, or production-scale APIs.
 - `c/`: extracted C implementations and headers
 - `python/NeoSUNDIALS/`: Python bindings, workflows, and example problems
 - `tests/`: C unit tests for the extracted kernels
-- `verify.py` and `verify_arkode.py`: end-to-end verification entry points
-- `run_c_unit_tests.py`: Python wrapper for building and running the C unit
-  tests
+- `run_python_tests.py`: Python unit-test and verification runner
 - `EXTRACTION_NOTES.md`: notes on which upstream SUNDIALS algorithms were
   extracted
 
@@ -73,7 +71,9 @@ Useful targets:
 
 - `make libs`: build the shared libraries used by the Python bindings
 - `make tests`: build the C unit-test executables
-- `make test`: build and run the C unit tests
+- `make c-test`: build and run the C unit tests
+- `make python-test`: run the Python unit tests and verification cases
+- `make test`: run the full C and Python test suite
 - `make clean`: remove build artifacts
 
 Build outputs are written under `build/`.
@@ -83,13 +83,13 @@ Build outputs are written under `build/`.
 Typical entry points from the repository root:
 
 ```bash
-python run_c_unit_tests.py
-python verify.py
-python verify_arkode.py
+make test
+python run_python_tests.py
 ```
 
-The Python workflow will build the native libraries on first use with the
-system C compiler if they are not already present.
+The Python runner executes both the Python unit tests and the higher-level SBDF
+and ARK verification cases. The Python workflow will build the native libraries
+on first use with the system C compiler if they are not already present.
 
 ## Upstream Lineage
 
