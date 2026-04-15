@@ -43,18 +43,35 @@ ARKODE_ADAPT_TEST := $(TEST_BUILD_DIR)/test_arkode_adapt
 ARKODE_INTERP_TEST := $(TEST_BUILD_DIR)/test_arkode_interp
 ARKODE_TSTOP_TEST := $(TEST_BUILD_DIR)/test_arkode_tstop
 ARKODE_RESET_TEST := $(TEST_BUILD_DIR)/test_arkode_reset
+C_TESTS := \
+	$(SBDF_TEST) \
+	$(ARKODE_TEST) \
+	$(NVECTOR_TEST) \
+	$(ARKODE_ADAPT_TEST) \
+	$(ARKODE_INTERP_TEST) \
+	$(ARKODE_TSTOP_TEST) \
+	$(ARKODE_RESET_TEST)
 
-.PHONY: all libs tests clean help check
+.PHONY: all libs tests clean help check check-c check-python
 
 all: libs tests
 
 libs: $(SBDF_LIB) $(ARKODE_LIB) $(NVECTOR_LIB)
 
-tests: $(SBDF_TEST) $(ARKODE_TEST) $(NVECTOR_TEST) $(ARKODE_ADAPT_TEST) $(ARKODE_INTERP_TEST) $(ARKODE_TSTOP_TEST) $(ARKODE_RESET_TEST)
+tests: $(C_TESTS)
 
-check: libs tests
+check: check-c check-python
+	@echo "All tests passed!"
+
+check-c: tests
+	@set -e; \
+	for test_exe in $(C_TESTS); do \
+	  printf '%s\n' "Running $$test_exe"; \
+	  "$$test_exe"; \
+	done
+
+check-python: libs
 	$(PYTHON) -m unittest discover tests -p test_*.py -v
-	@echo \"All tests passed!\"
 
 $(BUILD_DIR) $(OBJ_DIR) $(TEST_BUILD_DIR):
 	mkdir -p $@
@@ -107,5 +124,7 @@ help:
 	  '  make            Build shared libraries and C test executables' \
 	  '  make libs       Build libsbdf_core and libarkode_core for the Python bindings' \
 	  '  make tests      Build the C unit-test executables' \
-	  '  make check      Build + run full test suite verified in Python' \
+	  '  make check-c    Build and run the C unit-test executables' \
+	  '  make check-python Build shared libraries and run the Python test suite' \
+	  '  make check      Build and run the full C + Python test suite' \
 	  '  make clean      Remove build artifacts'

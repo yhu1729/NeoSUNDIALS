@@ -144,7 +144,9 @@ Useful targets:
 
 - `make libs`: build the shared libraries used by the Python bindings
 - `make tests`: build the C unit-test executables
-- `make check`: run the Python suite (includes C integration checks)
+- `make check-c`: build and run the C unit-test executables
+- `make check-python`: build shared libraries and run the Python test suite
+- `make check`: run the full C and Python test suite
 - `make clean`: remove build artifacts
 
 Build outputs are written under `build/`.
@@ -155,12 +157,14 @@ Typical entry points from the repository root:
 
 ```bash
 make check
+make check-c
+make check-python
 python -m unittest discover tests -p "test_*.py" -v
 ```
 
-`make check` builds shared libraries, builds C unit-test executables, and then
-runs the Python suite. The Python tests also execute selected C test binaries
-through `tests/test_c_integration.py`.
+`make check` builds and runs the C unit-test executables directly, then builds
+the shared libraries and runs the Python suite. To run the C test executables
+from Python unittest discovery instead, set `NEOSUNDIALS_RUN_C_TESTS=1`.
 
 The Python native bridge builds shared libraries on first use with the system C
 compiler if the expected library is missing or stale.

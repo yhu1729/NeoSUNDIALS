@@ -8,6 +8,14 @@
   behavior, callback validation guarantees, and current test matrix.
 - Expanded the routine-porting checklist with scope, stabilization-policy, and
   high-value follow-up guidance.
+- Split test execution into explicit `make check-c`, `make check-python`, and
+  full `make check` targets so native tests are run directly by the build.
+- Updated Python C integration tests to discover built C executables without
+  duplicating the Makefile test list; direct unittest execution is opt-in via
+  `NEOSUNDIALS_RUN_C_TESTS=1`.
+- Removed unused upstream-style NVECTOR test scaffold files that were not part
+  of the build.
+- Centralized Python test source-path setup in `tests/support.py`.
 
 ## [0.4.0] - DAE Workflow Vertical Slice
 - Added experimental residual-form DAE workflow in

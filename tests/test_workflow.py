@@ -1,17 +1,13 @@
 from __future__ import annotations
 
-import sys
 import unittest
-from pathlib import Path
 
 import numpy as np
 
+from support import add_python_path
 
-ROOT = Path(__file__).resolve().parents[1]
-PYTHON_DIR = ROOT / "python"
-if str(PYTHON_DIR) not in sys.path:
-    sys.path.insert(0, str(PYTHON_DIR))
 
+add_python_path()
 from NeoSUNDIALS.problems import brusselator_problem, linear_decay_problem, van_der_pol_problem  # noqa: E402
 from NeoSUNDIALS.workflow import ODEProblem  # noqa: E402
 from NeoSUNDIALS.workflow import (  # noqa: E402
