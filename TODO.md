@@ -1,22 +1,47 @@
-# NeoSUNDIALS Porting TODO
+# TODO: Fix Conventional Commits
 
-## Current Task: Port Tests + NVECTOR Integration
+## Steps to complete:
 
-### Test Porting TODO (New)
-1. [x] Create `test_nvector.h` stub
-2. [x] Create `tests/test_nvector_serial_full.c`
-3. [ ] Port ARKODE interp test (needs SUNMatrix/LS stubs)
-4. [ ] NVECTOR integration to cores + update C tests
-5. [ ] Makefile/docs updates
-6. [ ] Verify tests
+[Complete] Backup created: `backup-conventional-fixes` branch created.
 
-### Legacy Phase 2: NVECTOR Integration (Merged)
-1. [ ] Edit `c/sbdf_core.h/c`
-2. [ ] Edit `c/arkode_core.h/c`
-3. [ ] Edit C tests
+1. **Run interactive rebase** (recommended): Copy-paste this into your editor when running `git rebase -i --root`:
 
-## Backlog
-- BDF order 5
-- Roots
-- Sparse
+```
+pick 7057299 chore: initial project setup
+pick 9c6bf35 feat: add SUNDIALS submodule
+pick 494ce69 feat: add initial project files
+pick cdb23c4 build: add Makefile for NeoSUNDIALS C builds
+pick 7330040 docs: update README
+pick 87b1b58 refactor: flatten NeoSUNDIALS project layout
+pick 4b04b8d feat: expand extracted solvers and tests
+pick 5152209 refactor(tests): unify project test runners
+pick 10269ce feat(arkode): expand extracted ARK method catalog
+pick 9c2e4ff feat(nvector): add self-contained serial N_Vector layer
+pick de2411f chore(tests): port SUNDIALS NVECTOR_SERIAL unit test
+```
+
+Save/quit (:wq). Edit body if prompted.
+
+2. **Force-push**: `git push --force-with-lease origin main`
+
+3. **Verify**: `git log --oneline -11`
+
+4. **Optional commitlint**: See below.
+
+**Progress**: 1/4 steps complete (backup done). No emojis used.
+
+**Notes**: If rebase conflicts arise, `git rebase --abort` and restore from backup: `git reset --hard backup-conventional-fixes`.
+
+## Optional: Automated commitlint setup (run after rebase)
+```
+npm init -y
+npm i -D @commitlint/config-conventional @commitlint/cli
+echo "module.exports = { extends: ['@commitlint/config-conventional'] };" > commitlint.config.js
+echo "#!/usr/bin/env sh
+. \"\$(dirname -- \"\$0\")/_/husky.sh\"
+
+npx --no -- commitlint --edit \${1}" > .git/hooks/commit-msg
+chmod +x .git/hooks/commit-msg
+```
+
 
