@@ -2,7 +2,15 @@ from __future__ import annotations
 
 import numpy as np
 
-from .ark_workflow import ARKProblem, DIRK_IMPLICIT_MIDPOINT, ERK_RK4
+from .ark_workflow import (
+    ARKProblem,
+    DIRK_BACKWARD_EULER,
+    DIRK_IMPLICIT_MIDPOINT,
+    ERK_BOGACKI_SHAMPINE,
+    ERK_EXPLICIT_MIDPOINT,
+    ERK_HEUN_EULER,
+    ERK_RK4,
+)
 
 
 def ark_linear_decay_problem(
@@ -51,6 +59,26 @@ def ark_lotka_volterra_problem() -> ARKProblem:
     )
 
 
+def ark_exp_growth_problem(
+    growth_rate: float = 1.0, initial_value: float = 1.0, method: int = ERK_BOGACKI_SHAMPINE
+) -> ARKProblem:
+    def rhs(_t: float, y: np.ndarray) -> np.ndarray:
+        return np.array([growth_rate * y[0]], dtype=np.float64)
+
+    def exact_solution(t: float) -> np.ndarray:
+        return np.array([initial_value * np.exp(growth_rate * t)], dtype=np.float64)
+
+    return ARKProblem(
+        name="ark_exp_growth",
+        dimension=1,
+        initial_time=0.0,
+        initial_state=np.array([initial_value], dtype=np.float64),
+        rhs=rhs,
+        method=method,
+        exact_solution=exact_solution,
+    )
+
+
 def ark_van_der_pol_problem(mu: float = 3.0, method: int = ERK_RK4) -> ARKProblem:
     def rhs(_t: float, y: np.ndarray) -> np.ndarray:
         return np.array(
@@ -79,6 +107,18 @@ def ark_van_der_pol_problem(mu: float = 3.0, method: int = ERK_RK4) -> ARKProble
         jacobian=jac,
         method=method,
     )
+
+
+def ark_method_gallery() -> list[ARKProblem]:
+    return [
+        ark_exp_growth_problem(method=ERK_HEUN_EULER),
+        ark_exp_growth_problem(method=ERK_EXPLICIT_MIDPOINT),
+        ark_exp_growth_problem(method=ERK_BOGACKI_SHAMPINE),
+        ark_linear_decay_problem(method=DIRK_BACKWARD_EULER),
+        ark_linear_decay_problem(method=DIRK_IMPLICIT_MIDPOINT),
+        ark_lotka_volterra_problem(),
+        ark_brusselator_problem(),
+    ]
 
 
 def ark_brusselator_problem() -> ARKProblem:

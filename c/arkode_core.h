@@ -11,7 +11,12 @@ typedef int (*ark_jac_fn)(double t, const double* y, double* jacobian, void* use
 typedef enum
 {
   ARK_METHOD_ERK_RK4 = 0,
-  ARK_METHOD_DIRK_IMPLICIT_MIDPOINT = 1
+  ARK_METHOD_DIRK_IMPLICIT_MIDPOINT = 1,
+  ARK_METHOD_ERK_FORWARD_EULER = 2,
+  ARK_METHOD_ERK_HEUN_EULER = 3,
+  ARK_METHOD_ERK_EXPLICIT_MIDPOINT = 4,
+  ARK_METHOD_ERK_BOGACKI_SHAMPINE = 5,
+  ARK_METHOD_DIRK_BACKWARD_EULER = 6
 } ARKMethodID;
 
 typedef struct

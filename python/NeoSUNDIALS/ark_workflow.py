@@ -20,6 +20,11 @@ ArrayFn = Callable[[float, np.ndarray], np.ndarray]
 
 ERK_RK4 = 0
 DIRK_IMPLICIT_MIDPOINT = 1
+ERK_FORWARD_EULER = 2
+ERK_HEUN_EULER = 3
+ERK_EXPLICIT_MIDPOINT = 4
+ERK_BOGACKI_SHAMPINE = 5
+DIRK_BACKWARD_EULER = 6
 
 
 @dataclass

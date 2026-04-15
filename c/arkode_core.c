@@ -80,6 +80,68 @@ static void ark_fill_table(ARKTable* table, ARKMethodID method)
     return;
   }
 
+  if (method == ARK_METHOD_DIRK_BACKWARD_EULER)
+  {
+    table->stages = 1;
+    table->order = 1;
+    table->implicit = 1;
+    table->A[0][0] = 1.0;
+    table->b[0] = 1.0;
+    table->c[0] = 1.0;
+    return;
+  }
+
+  if (method == ARK_METHOD_ERK_FORWARD_EULER)
+  {
+    table->stages = 1;
+    table->order = 1;
+    table->implicit = 0;
+    table->b[0] = 1.0;
+    return;
+  }
+
+  if (method == ARK_METHOD_ERK_HEUN_EULER)
+  {
+    table->stages = 2;
+    table->order = 2;
+    table->implicit = 0;
+    table->A[1][0] = 1.0;
+    table->b[0] = 0.5;
+    table->b[1] = 0.5;
+    table->c[1] = 1.0;
+    return;
+  }
+
+  if (method == ARK_METHOD_ERK_EXPLICIT_MIDPOINT)
+  {
+    table->stages = 2;
+    table->order = 2;
+    table->implicit = 0;
+    table->A[1][0] = 0.5;
+    table->b[1] = 1.0;
+    table->c[1] = 0.5;
+    return;
+  }
+
+  if (method == ARK_METHOD_ERK_BOGACKI_SHAMPINE)
+  {
+    table->stages = 4;
+    table->order = 3;
+    table->implicit = 0;
+    table->A[1][0] = 0.5;
+    table->A[2][1] = 0.75;
+    table->A[3][0] = 2.0 / 9.0;
+    table->A[3][1] = 1.0 / 3.0;
+    table->A[3][2] = 4.0 / 9.0;
+    table->b[0] = 2.0 / 9.0;
+    table->b[1] = 1.0 / 3.0;
+    table->b[2] = 4.0 / 9.0;
+    table->c[1] = 0.5;
+    table->c[2] = 0.75;
+    table->c[3] = 1.0;
+    return;
+  }
+
   table->stages = 4;
   table->order = 4;
   table->implicit = 0;
