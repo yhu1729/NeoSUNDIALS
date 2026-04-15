@@ -4,6 +4,9 @@
 - [SBDF Core (CVODE/IDA)](#sbdf-core-cvodeida)
 - [Workflow Layer](#workflow-layer)
 - [ARKODE Core](#arkode-core)
+- [Behavioral Guarantees](#behavioral-guarantees)
+- [Known Gaps And Intentional Non-Goals](#known-gaps-and-intentional-non-goals)
+- [Testing Matrix](#testing-matrix)
 
 This distills SUNDIALS parts into numerical kernels (`c/`) and workflows (`python/`).
 
@@ -100,3 +103,33 @@ keeps the higher-level ARKODE workflow ideas:
 - sample at requested output times
 - interpolate between step endpoints
 - gather statistics and diagnostics
+
+## Behavioral Guarantees
+
+- Native constructors return opaque state handles or `NULL` on failure.
+- Native stepping routines report failures through nonzero status codes.
+- Python workflow APIs raise exceptions when native calls fail.
+- Time integration uses adaptive step control in both SBDF and ARK cores.
+- Dense Jacobian and finite-difference Jacobian paths are both supported.
+
+## Known Gaps And Intentional Non-Goals
+
+- Feature completeness is intentionally reduced versus upstream SUNDIALS.
+- Only dense linear algebra is in scope; no sparse/Krylov stacks.
+- No rootfinding, events, sensitivity analysis, or projection.
+- BDF support in the current implementation is focused on BDF1/BDF2.
+- The native Python callback bridge currently assumes callbacks do not raise;
+  callback exception handling is a known hardening task.
+- NVector weighted norms are present but currently under validation because
+  the weight vector is not consumed in all weighted operators.
+
+## Testing Matrix
+
+| Claim | Primary implementation | Test coverage | Status |
+|------|-------------------------|---------------|--------|
+| SBDF adaptive implicit stepping | `c/sbdf_core.c` | `tests/test_sbdf_core.c`, `tests/test_workflow.py`, `tests/test_verification.py` | Covered |
+| ARK explicit/implicit stepping | `c/arkode_core.c` | `tests/test_arkode_core.c`, `tests/test_ark_workflow.py`, `tests/test_verification.py` | Covered |
+| ARK adaptation controls | `c/arkode_core.c` | `tests/test_arkode_adapt.c` | Covered |
+| NVector core algebra | `c/nvector_serial.c` | `tests/test_nvector_serial.c` | Covered |
+| NVector weighted norms | `c/nvector_serial.c` | `tests/test_nvector_serial.c` | Partial (uniform-weight only) |
+| ARK interpolation/tstop/reset semantics | `c/arkode_core.c` | `tests/test_arkode_interp.c`, `tests/test_arkode_tstop.c`, `tests/test_arkode_reset.c` | Partial (workflow-level emulation) |

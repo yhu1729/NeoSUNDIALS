@@ -33,6 +33,24 @@ The extracted implementation currently includes:
 - C unit tests (SBDF/ARK/NVector) and Python verification scripts
 - `CHANGELOG.md` tracking ports.
 
+## Public API Contract
+
+### C layer
+
+| Area | Entry points | Contract |
+|------|--------------|----------|
+| SBDF | `sbdf_create`, `sbdf_step`, `sbdf_get_state`, `sbdf_get_summary`, `sbdf_set_step_size`, `sbdf_free` | Caller owns callback correctness and input buffers. Functions return integer status codes (`0` success). |
+| ARK | `ark_create`, `ark_step`, `ark_get_state`, `ark_get_summary`, `ark_set_step_size`, `ark_free` | Same ownership and return-code model as SBDF. |
+| NVector | `N_VNew_Serial`, `N_VDestroy_Serial`, vector ops in `nvector_serial.c` | Serial-only implementation with direct heap ownership rules in `N_VSetArrayPointer_Serial`. |
+
+### Python layer
+
+| Area | Entry points | Contract |
+|------|--------------|----------|
+| SBDF workflow | `python/NeoSUNDIALS/workflow.py` | Raises Python exceptions on invalid setup and native nonzero return codes. |
+| ARK workflow | `python/NeoSUNDIALS/ark_workflow.py` | Same error model as SBDF workflow. |
+| Native bridges | `python/NeoSUNDIALS/native.py`, `python/NeoSUNDIALS/ark_native.py` | Uses `ctypes`; callbacks must return correctly shaped numeric arrays and should avoid raising. |
+
 ## Extracted Solver Scope
 
 The extracted code intentionally focuses on the algorithmic spine rather than
@@ -48,6 +66,16 @@ feature completeness. It currently includes:
 - built-in explicit and diagonally implicit Butcher tables
 - step-doubling error estimation and adaptive step control
 
+## Known Deviations And Risks
+
+- This is not a compatibility implementation of the full SUNDIALS API.
+- Dense linear algebra only; no sparse or Krylov linear solver backends.
+- No rootfinding, sensitivity analysis, constraints, projection, or events.
+- Some test files in `tests/` are exploratory artifacts and are not wired into
+  the default build (`make tests` / `make check`).
+- Current NVector weighted-norm routines in `c/nvector_serial.c` should be
+  treated as under review (the weight argument is currently unused).
+
 This extraction is intentionally smaller than full SUNDIALS. It does not aim to
 reproduce the full feature surface such as large solver stacks, rootfinding,
 sensitivity analysis, or production-scale APIs.
@@ -59,7 +87,6 @@ sensitivity analysis, or production-scale APIs.
 | `c/` | Extracted C cores: `arkode_core.[ch]`, `sbdf_core.[ch]`, `nvector_serial.[ch]` |
 | `python/NeoSUNDIALS/` | Python workflows, problems, ctypes bindings |
 | `tests/` | C unit tests (`test_*.c`) |
-| `run_python_tests.py` | Full Python test/verification runner |
 | `EXTRACTION_NOTES.md` | Upstream algorithm mappings |
 | [TODO.md](TODO.md) | Development roadmap |
 | [CHANGELOG.md](CHANGELOG.md) | Version history |
@@ -78,9 +105,7 @@ Useful targets:
 
 - `make libs`: build the shared libraries used by the Python bindings
 - `make tests`: build the C unit-test executables
-- `make c-test`: build and run the C unit tests
-- `make python-test`: run full suite (C tests launched/verified from Python + Python unit/verification)
-- `make test`: run the full C and Python test suite
+- `make check`: run the Python suite (includes C integration checks)
 - `make clean`: remove build artifacts
 
 Build outputs are written under `build/`.
@@ -90,13 +115,13 @@ Build outputs are written under `build/`.
 Typical entry points from the repository root:
 
 ```bash
-make test
-python run_python_tests.py
+make check
+python -m unittest discover tests -p "test_*.py" -v
 ```
 
-The Python runner executes both the Python unit tests and the higher-level SBDF
-and ARK verification cases. The Python workflow will build the native libraries
-on first use with the system C compiler if they are not already present.
+The Python test suite executes both unit tests and higher-level SBDF/ARK
+verification cases. The Python workflow builds native libraries on first use
+with the system C compiler if they are not already present.
 
 ## Upstream Lineage
 
