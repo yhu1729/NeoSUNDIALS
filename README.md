@@ -1,5 +1,7 @@
 # NeoSUNDIALS
 
+[![License](https://img.shields.io/badge/License-BSD--3--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
+
 NeoSUNDIALS is a compact, AI-assisted extraction of selected SUNDIALS solver
 ideas into a codebase that is small enough to audit directly.
 
@@ -118,17 +120,17 @@ sensitivity analysis, or production-scale APIs.
 
 ## Key Paths
 
-| Directory/File | Description |
-|---------------|-------------|
-| `c/` | Extracted C cores: `arkode_core.[ch]`, `sbdf_core.[ch]`, `nvector_serial.[ch]` |
-| `python/NeoSUNDIALS/` | Python workflows, problems, ctypes bindings |
-| `tests/` | C unit tests, Python workflow tests, and integration/verification tests |
-| `EXTRACTION_NOTES.md` | Upstream algorithm mappings |
-| [PORTING_ROADMAP.md](PORTING_ROADMAP.md) | Staged roadmap for porting more SUNDIALS concepts into NeoSUNDIALS |
-| [TODO.md](TODO.md) | Development roadmap |
-| [CHANGELOG.md](CHANGELOG.md) | Version history |
-
-[![License](https://img.shields.io/badge/License-BSD--3--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
+- [c/](c/): extracted C cores, including `arkode_core.[ch]`,
+  `sbdf_core.[ch]`, and `nvector_serial.[ch]`.
+- [python/NeoSUNDIALS/](python/NeoSUNDIALS/): Python workflows, problems,
+  and `ctypes` bindings.
+- [tests/](tests/): C unit tests, Python workflow tests, and
+  integration/verification tests.
+- [EXTRACTION_NOTES.md](EXTRACTION_NOTES.md): upstream algorithm mappings.
+- [PORTING_ROADMAP.md](PORTING_ROADMAP.md): staged roadmap for porting more
+  SUNDIALS concepts into NeoSUNDIALS.
+- [TODO.md](TODO.md): development checklist for routine/workflow ports.
+- [CHANGELOG.md](CHANGELOG.md): version history.
 
 ## Building The C Components
 
