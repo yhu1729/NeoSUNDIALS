@@ -33,6 +33,19 @@ double N_VDotProd_Serial(N_Vector x, N_Vector y);
 double N_VWrmsNorm_Serial(N_Vector x, N_Vector w);
 double N_VMin_Serial(N_Vector x);
 double N_VMax_Serial(N_Vector x);
+double N_VMax_Serial(N_Vector x);
+void N_VProd_Serial(N_Vector x, N_Vector y, N_Vector z);
+void N_VDiv_Serial(N_Vector x, N_Vector y, N_Vector z);
+double N_VMaxNorm_Serial(N_Vector x);
+double N_VL1Norm_Serial(N_Vector x);
+double N_VWL2Norm_Serial(N_Vector x, N_Vector w);
+void N_VInv_Serial(N_Vector x, N_Vector z);
+void N_VAddConst_Serial(double c, N_Vector x, N_Vector z);
+int N_VInvTest_Serial(N_Vector x, N_Vector z);
+int N_VConstrMask_Serial(N_Vector c, N_Vector x, N_Vector m);
+double N_VMinQuotient_Serial(N_Vector num, N_Vector denom);
+void N_VCompare_Serial(double c, N_Vector x, N_Vector z);
+double N_VWSqrSumLocal_Serial(N_Vector x, N_Vector w);
 void N_VAbs_Serial(N_Vector x, N_Vector z);
 
 #ifdef __cplusplus
