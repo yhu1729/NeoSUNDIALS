@@ -54,12 +54,17 @@ sensitivity analysis, or production-scale APIs.
 
 ## Key Paths
 
-- `c/`: extracted C implementations and headers
-- `python/NeoSUNDIALS/`: Python bindings, workflows, and example problems
-- `tests/`: C unit tests for the extracted kernels
-- `run_python_tests.py`: Python unit-test and verification runner
-- `EXTRACTION_NOTES.md`: notes on which upstream SUNDIALS algorithms were
-  extracted
+| Directory/File | Description |
+|---------------|-------------|
+| `c/` | Extracted C cores: `arkode_core.[ch]`, `sbdf_core.[ch]`, `nvector_serial.[ch]` |
+| `python/NeoSUNDIALS/` | Python workflows, problems, ctypes bindings |
+| `tests/` | C unit tests (`test_*.c`) |
+| `run_python_tests.py` | Full Python test/verification runner |
+| `EXTRACTION_NOTES.md` | Upstream algorithm mappings |
+| [TODO.md](TODO.md) | Development roadmap |
+| [CHANGELOG.md](CHANGELOG.md) | Version history |
+
+[![License](https://img.shields.io/badge/License-BSD--3--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
 
 ## Building The C Components
 

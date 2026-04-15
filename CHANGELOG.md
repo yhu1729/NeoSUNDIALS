@@ -7,13 +7,21 @@
 - C/Python unit tests, verification vs analytic solutions.
 - `make test` for full suite.
 
-## [0.2.0] - NVector Serial Layer - Current
-- Added `c/nvector_serial.[ch]` minimal N_Vector abstraction (self-contained, no upstream deps).
-  - Core ops: N_VNew/Clone/Destroy, LinearSum/Scale/Axpy/Dot/WrmsNorm/Min/Max/Abs.
-  - Array pointer bridge for legacy compat.
-- `tests/test_nvector_serial.c` unit tests passing.
-- Makefile integration (`libnvector_serial`, test target).
-- Verified `make c-test` all pass (SBDF/ARK/NVector).
+## Unreleased
+- Integrate `N_Vector` into SBDF/ARK cores [#TODO].
+- Expand tests/benchmarks.
+- Python packaging support.
 
-Next: Integrate NVectors into SBDF/ARK cores (replace raw double*).
+## [0.2.0] - 2024 - NVector Serial Layer
+- Added `c/nvector_serial.[ch]` minimal `N_Vector` (self-contained).
+  - Ops: Create/Clone/Destroy, LinearSum/Scale/Axpy/Dot/WRMSNorm/Min/Max/Abs.
+  - Legacy `content` pointer access.
+- `tests/test_nvector_serial.c` passing.
+- Makefile: `libnvector_serial`, `make c-test` full suite passes.
+
+## [0.1.0] - 2024 - Initial Extraction
+- SBDF core (BDF1/2 implicit multistep).
+- ARKODE core (explicit/implicit RK, Butcher tables).
+- Python ctypes bindings + problems (decay, Brusselator, vdp).
+- C/Python tests, `make test` runner.
 

@@ -1,7 +1,11 @@
 # Extraction Notes
 
-This directory distills the parts of SUNDIALS that most clearly separate into
-numerical kernel logic and workflow/orchestration logic.
+## Table of Contents
+- [SBDF Core (CVODE/IDA)](#sbdf-core-cvodeida)
+- [Workflow Layer](#workflow-layer)
+- [ARKODE Core](#arkode-core)
+
+This distills SUNDIALS parts into numerical kernels (`c/`) and workflows (`python/`).
 
 ## Core Numerical Algorithms Extracted From SUNDIALS
 
