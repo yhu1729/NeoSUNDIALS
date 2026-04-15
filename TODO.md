@@ -3,11 +3,18 @@
 Use this checklist for each new SUNDIALS routine/workflow port so extraction,
 testing, and docs stay consistent.
 
+The project direction is vertical-slice extraction: each milestone should add
+the smallest reviewable set of C kernel, Python bridge/workflow, tests, and
+documentation needed for one coherent capability. Do not port broad API surface
+area without an end-to-end problem that exercises it.
+
 ## 1) Scope And Lineage
 
 - [ ] Identify exact upstream SUNDIALS routines/doc sections being extracted.
 - [ ] Define the minimum supported subset for this milestone.
 - [ ] Record explicit non-goals/deferred features.
+- [ ] Decide whether the feature belongs in the extracted root implementation
+      or only in the vendored `sundials/` reference tree.
 
 ## 2) C Core Integration (`c/*.c`, `c/*.h`)
 
@@ -27,6 +34,8 @@ testing, and docs stay consistent.
 - [ ] Add user-facing config/problem fields required by the new routine.
 - [ ] Preserve adaptive stepping + output sampling semantics.
 - [ ] Keep diagnostics and run summaries backward compatible.
+- [ ] Document any workflow-level stabilization policy, such as clamped step
+      sizes, reduced order, fallback paths, or relaxed tolerances.
 
 ## 5) Tests (required before merge)
 
@@ -41,3 +50,15 @@ testing, and docs stay consistent.
 - [ ] Update `EXTRACTION_NOTES.md` extraction mapping + testing matrix.
 - [ ] Update `README.md` supported features and caveats.
 - [ ] Add release note entry in `CHANGELOG.md`.
+
+## Current High-Value Follow-Ups
+
+- [ ] Harden native DAE residual stepping enough to reduce or remove the Python
+      residual-bridge fallback.
+- [ ] Add a nontrivial DAE verification problem beyond linear decay.
+- [ ] Expose native status constants in headers or Python error mapping docs so
+      failure modes are easier to interpret.
+- [ ] Decide whether ARK interpolation/tstop/reset should remain
+      workflow-level emulation or become native API surface.
+- [ ] Keep `README.md`, `EXTRACTION_NOTES.md`, and this checklist synchronized
+      whenever a solver capability changes.
