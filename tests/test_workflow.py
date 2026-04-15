@@ -13,6 +13,7 @@ if str(PYTHON_DIR) not in sys.path:
     sys.path.insert(0, str(PYTHON_DIR))
 
 from NeoSUNDIALS.problems import brusselator_problem, linear_decay_problem, van_der_pol_problem  # noqa: E402
+from NeoSUNDIALS.workflow import ODEProblem  # noqa: E402
 from NeoSUNDIALS.workflow import (  # noqa: E402
     SolverConfig,
     compute_reference_error,
@@ -52,6 +53,20 @@ class WorkflowTests(unittest.TestCase):
     def test_catalog_problems_have_expected_shapes(self) -> None:
         self.assertEqual(brusselator_problem().dimension, 2)
         self.assertEqual(van_der_pol_problem().initial_state.shape, (2,))
+
+    def test_solve_problem_reports_rhs_callback_shape_errors(self) -> None:
+        def bad_rhs(_t: float, _y: np.ndarray) -> np.ndarray:
+            return np.array([1.0, 2.0], dtype=np.float64)
+
+        problem = ODEProblem(
+            name="bad_rhs_shape",
+            dimension=1,
+            initial_time=0.0,
+            initial_state=np.array([1.0], dtype=np.float64),
+            rhs=bad_rhs,
+        )
+        with self.assertRaisesRegex(RuntimeError, "RHS callback failed"):
+            solve_problem(problem, SolverConfig(t_final=0.1, h_init=1e-3, h_max=0.01))
 
 
 if __name__ == "__main__":

@@ -158,10 +158,13 @@ class NativeARKSolver:
         self._dim = int(config.dimension)
         self._rhs_python = rhs
         self._jac_python = jac
+        self._last_callback_error: str | None = None
         self._rhs_cb = RHS_CALLBACK(self._rhs_bridge)
         self._jac_cb = JAC_CALLBACK(self._jac_bridge) if jac is not None else JAC_CALLBACK()
 
         y0 = np.asarray(y0, dtype=np.float64)
+        if y0.shape != (self._dim,):
+            raise ValueError(f"Initial state must have shape ({self._dim},), got {y0.shape}")
         self._state = self._lib.ark_create(
             ctypes.byref(config),
             ctypes.c_double(t0),
@@ -177,21 +180,46 @@ class NativeARKSolver:
             self._state = None
 
     def _rhs_bridge(self, t, y_ptr, dydt_ptr, _user_data):
-        y = np.ctypeslib.as_array(y_ptr, shape=(self._dim,))
-        dydt = np.ctypeslib.as_array(dydt_ptr, shape=(self._dim,))
-        dydt[:] = self._rhs_python(float(t), y.copy())
-        return 0
+        try:
+            y = np.ctypeslib.as_array(y_ptr, shape=(self._dim,))
+            dydt = np.ctypeslib.as_array(dydt_ptr, shape=(self._dim,))
+            rhs_val = np.asarray(self._rhs_python(float(t), y.copy()), dtype=np.float64)
+            if rhs_val.shape != (self._dim,):
+                raise ValueError(f"RHS callback must return shape ({self._dim},), got {rhs_val.shape}")
+            if not np.all(np.isfinite(rhs_val)):
+                raise ValueError("RHS callback returned non-finite values")
+            dydt[:] = rhs_val
+            self._last_callback_error = None
+            return 0
+        except Exception as exc:
+            self._last_callback_error = f"RHS callback failed at t={float(t):.16g}: {exc}"
+            return -1
 
     def _jac_bridge(self, t, y_ptr, jac_ptr, _user_data):
-        y = np.ctypeslib.as_array(y_ptr, shape=(self._dim,))
-        jac = np.ctypeslib.as_array(jac_ptr, shape=(self._dim * self._dim,))
-        jac[:] = np.asarray(self._jac_python(float(t), y.copy()), dtype=np.float64).reshape(-1)
-        return 0
+        try:
+            y = np.ctypeslib.as_array(y_ptr, shape=(self._dim,))
+            jac = np.ctypeslib.as_array(jac_ptr, shape=(self._dim * self._dim,))
+            jac_val = np.asarray(self._jac_python(float(t), y.copy()), dtype=np.float64)
+            if jac_val.shape != (self._dim, self._dim):
+                raise ValueError(
+                    f"Jacobian callback must return shape ({self._dim}, {self._dim}), got {jac_val.shape}"
+                )
+            if not np.all(np.isfinite(jac_val)):
+                raise ValueError("Jacobian callback returned non-finite values")
+            jac[:] = jac_val.reshape(-1)
+            self._last_callback_error = None
+            return 0
+        except Exception as exc:
+            self._last_callback_error = f"Jacobian callback failed at t={float(t):.16g}: {exc}"
+            return -1
 
     def step(self) -> NativeARKStep:
         stats = ARKStepStats()
+        self._last_callback_error = None
         flag = self._lib.ark_step(self._state, self._rhs_cb, self._jac_cb, None, ctypes.byref(stats))
         if flag != 0:
+            if self._last_callback_error is not None:
+                raise RuntimeError(f"Native ARK step failed with status {flag}: {self._last_callback_error}")
             raise RuntimeError(f"Native ARK step failed with status {flag}")
         return NativeARKStep(
             step_index=stats.step_index,

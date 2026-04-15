@@ -20,6 +20,7 @@ from NeoSUNDIALS.ark_problems import (  # noqa: E402
     ark_van_der_pol_problem,
 )
 from NeoSUNDIALS.ark_workflow import (  # noqa: E402
+    ARKProblem,
     ARKSolverConfig,
     DIRK_BACKWARD_EULER,
     DIRK_IMPLICIT_MIDPOINT,
@@ -77,6 +78,23 @@ class ARKWorkflowTests(unittest.TestCase):
             num_points=16,
         )
         self.assertGreater(result.summary.newton_iters, 0)
+
+    def test_solve_ark_problem_reports_rhs_callback_shape_errors(self) -> None:
+        def bad_rhs(t: float, _y: np.ndarray) -> np.ndarray:
+            if t <= 1e-15:
+                return np.array([-1.0], dtype=np.float64)
+            return np.array([-1.0, -2.0], dtype=np.float64)
+
+        problem = ARKProblem(
+            name="ark_bad_rhs_shape",
+            dimension=1,
+            initial_time=0.0,
+            initial_state=np.array([1.0], dtype=np.float64),
+            rhs=bad_rhs,
+            method=ERK_EXPLICIT_MIDPOINT,
+        )
+        with self.assertRaisesRegex(RuntimeError, "RHS callback failed"):
+            solve_ark_problem(problem, ARKSolverConfig(t_final=0.1, h_init=1e-3, h_max=0.01))
 
 
 if __name__ == "__main__":
