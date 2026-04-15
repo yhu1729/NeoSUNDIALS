@@ -6,6 +6,13 @@ from typing import Callable
 import numpy as np
 
 from .ark_native import ARKConfig, NativeARKSolver
+from .numerics import (
+    ExactSolutionFn,
+    cubic_hermite_interpolate,
+    max_output_error,
+    uniform_output_times,
+    validate_output_times,
+)
 
 
 ArrayFn = Callable[[float, np.ndarray], np.ndarray]
@@ -24,6 +31,7 @@ class ARKProblem:
     rhs: ArrayFn
     jacobian: ArrayFn | None = None
     method: int = ERK_RK4
+    exact_solution: ExactSolutionFn | None = None
 
 
 @dataclass
@@ -93,23 +101,24 @@ class ARKRunResult:
     summary: ARKRunSummary
 
 
-def _hermite_interpolate(t0: float, y0: np.ndarray, f0: np.ndarray, t1: float, y1: np.ndarray, f1: np.ndarray, t: float) -> np.ndarray:
-    h = t1 - t0
-    if abs(h) < 1e-15:
-        return y1.copy()
-    s = (t - t0) / h
-    h00 = 2 * s**3 - 3 * s**2 + 1
-    h10 = s**3 - 2 * s**2 + s
-    h01 = -2 * s**3 + 3 * s**2
-    h11 = s**3 - s**2
-    return h00 * y0 + h * h10 * f0 + h01 * y1 + h * h11 * f1
+def solve_ark_problem_uniform(
+    problem: ARKProblem, config: ARKSolverConfig, num_points: int = 101
+) -> ARKRunResult:
+    return solve_ark_problem(
+        problem,
+        config,
+        output_times=uniform_output_times(problem.initial_time, config.t_final, num_points),
+    )
+
+
+def compute_reference_error(problem: ARKProblem, result: ARKRunResult) -> float:
+    if problem.exact_solution is None:
+        raise ValueError("problem does not define an exact solution")
+    return max_output_error(result.output_times, result.output_states, problem.exact_solution)
 
 
 def solve_ark_problem(problem: ARKProblem, config: ARKSolverConfig, output_times=None) -> ARKRunResult:
-    if output_times is None:
-        output_times = np.linspace(problem.initial_time, config.t_final, 101, dtype=np.float64)
-    else:
-        output_times = np.asarray(output_times, dtype=np.float64)
+    output_times = validate_output_times(problem.initial_time, config.t_final, output_times)
 
     solver = NativeARKSolver(
         config=config.to_native(problem),
@@ -121,12 +130,15 @@ def solve_ark_problem(problem: ARKProblem, config: ARKSolverConfig, output_times
 
     step_history: list[ARKStepRecord] = []
     output_states = np.empty((len(output_times), problem.dimension), dtype=np.float64)
-    output_states[0] = np.asarray(problem.initial_state, dtype=np.float64)
 
     prev_t = problem.initial_time
     prev_y = np.asarray(problem.initial_state, dtype=np.float64).copy()
     prev_f = problem.rhs(prev_t, prev_y)
-    output_index = 1
+    output_index = 0
+
+    while output_index < len(output_times) and output_times[output_index] <= prev_t + 1e-15:
+        output_states[output_index] = prev_y
+        output_index += 1
 
     while solver.time() < config.t_final - 1e-15:
         remaining = config.t_final - solver.time()
@@ -150,7 +162,7 @@ def solve_ark_problem(problem: ARKProblem, config: ARKSolverConfig, output_times
         )
 
         while output_index < len(output_times) and output_times[output_index] <= curr_t + 1e-15:
-            output_states[output_index] = _hermite_interpolate(
+            output_states[output_index] = cubic_hermite_interpolate(
                 prev_t, prev_y, prev_f, curr_t, curr_y, curr_f, output_times[output_index]
             )
             output_index += 1

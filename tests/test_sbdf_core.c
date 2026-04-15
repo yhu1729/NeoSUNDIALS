@@ -43,6 +43,23 @@ static int jac_zero(double t, const double* y, double* jacobian, void* user_data
   return 0;
 }
 
+static int rhs_linear_decay(double t, const double* y, double* dydt, void* user_data)
+{
+  (void)t;
+  (void)user_data;
+  dydt[0] = -1.5 * y[0];
+  return 0;
+}
+
+static int jac_linear_decay(double t, const double* y, double* jacobian, void* user_data)
+{
+  (void)t;
+  (void)y;
+  (void)user_data;
+  jacobian[0] = -1.5;
+  return 0;
+}
+
 static void test_create_getters_and_setter(void)
 {
   SBDFConfig config;
@@ -107,13 +124,19 @@ static void test_integrate_zero_rhs(void)
 
   while (sbdf_get_time(state) < tf - 1e-14)
   {
+    int flag;
     double remaining = tf - sbdf_get_time(state);
     sbdf_get_summary(state, &summary);
     expect_true(sbdf_set_step_size(
                   state, remaining < summary.current_h ? remaining : summary.current_h) == 0,
                 "sbdf_set_step_size succeeds during integration");
-    expect_true(sbdf_step(state, rhs_zero, jac_zero, NULL, &stats) == 0,
-                "sbdf_step succeeds");
+    flag = sbdf_step(state, rhs_zero, jac_zero, NULL, &stats);
+    expect_true(flag == 0, "sbdf_step succeeds");
+    if (flag != 0)
+    {
+      sbdf_free(state);
+      return;
+    }
     expect_true(stats.accepted == 1, "step is accepted");
     expect_true(stats.error_norm <= 1.0 + 1e-12, "accepted step has bounded error estimate");
   }
@@ -129,10 +152,66 @@ static void test_integrate_zero_rhs(void)
   sbdf_free(state);
 }
 
+static void test_linear_decay_with_analytic_jacobian(void)
+{
+  SBDFConfig config;
+  SBDFState* state;
+  SBDFSummary summary;
+  SBDFStepStats stats;
+  double y0[1] = {1.0};
+  double y[1] = {0.0};
+  const double tf = 0.4;
+
+  config.dimension = 1;
+  config.max_order = 2;
+  config.max_steps = 5000;
+  config.max_newton_iters = 8;
+  config.rtol = 1e-7;
+  config.atol = 1e-10;
+  config.h_init = 1e-3;
+  config.h_min = 1e-8;
+  config.h_max = 5e-2;
+  config.safety = 0.9;
+  config.min_factor = 0.2;
+  config.max_factor = 4.0;
+  config.newton_tol = 0.05;
+
+  state = sbdf_create(&config, 0.0, y0);
+  expect_true(state != NULL, "sbdf_create succeeds for linear decay test");
+  if (state == NULL) { return; }
+
+  while (sbdf_get_time(state) < tf - 1e-14)
+  {
+    int flag;
+    double remaining = tf - sbdf_get_time(state);
+    sbdf_get_summary(state, &summary);
+    expect_true(sbdf_set_step_size(
+                  state, remaining < summary.current_h ? remaining : summary.current_h) == 0,
+                "sbdf_set_step_size succeeds during linear decay integration");
+    flag = sbdf_step(state, rhs_linear_decay, jac_linear_decay, NULL, &stats);
+    expect_true(flag == 0, "sbdf_step succeeds for linear decay");
+    if (flag != 0)
+    {
+      sbdf_free(state);
+      return;
+    }
+    expect_true(stats.newton_iters > 0, "linear decay step performs Newton iterations");
+    expect_true(stats.order >= 1 && stats.order <= 2, "linear decay uses a supported order");
+  }
+
+  expect_true(sbdf_get_state(state, y) == 0, "linear decay final state can be read");
+  expect_close(sbdf_get_time(state), tf, 1e-12, "linear decay reaches target final time");
+  expect_close(y[0], exp(-1.5 * tf), 1e-5, "linear decay solution matches analytic solution");
+  expect_true(sbdf_get_summary(state, &summary) == 0, "linear decay summary is available");
+  expect_true(summary.jac_evals > 0, "linear decay summary records Jacobian evaluations");
+  sbdf_free(state);
+}
+
 int main(void)
 {
   test_create_getters_and_setter();
   test_integrate_zero_rhs();
+  test_linear_decay_with_analytic_jacobian();
 
   if (failures != 0)
   {

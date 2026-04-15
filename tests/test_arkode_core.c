@@ -50,6 +50,15 @@ static int jac_linear_decay(double t, const double* y, double* jacobian, void* u
   return 0;
 }
 
+static int rhs_zero(double t, const double* y, double* ydot, void* user_data)
+{
+  (void)t;
+  (void)y;
+  (void)user_data;
+  ydot[0] = 0.0;
+  return 0;
+}
+
 static void test_erk_rk4_exp_growth(void)
 {
   ARKConfig config;
@@ -80,13 +89,19 @@ static void test_erk_rk4_exp_growth(void)
 
   while (ark_get_time(state) < tf - 1e-14)
   {
+    int flag;
     double remaining = tf - ark_get_time(state);
     ark_get_summary(state, &summary);
     expect_true(ark_set_step_size(
                   state, remaining < summary.current_h ? remaining : summary.current_h) == 0,
                 "ark_set_step_size succeeds during ERK integration");
-    expect_true(ark_step(state, rhs_exp_growth, NULL, NULL, &stats) == 0,
-                "ark_step succeeds for ERK");
+    flag = ark_step(state, rhs_exp_growth, NULL, NULL, &stats);
+    expect_true(flag == 0, "ark_step succeeds for ERK");
+    if (flag != 0)
+    {
+      ark_free(state);
+      return;
+    }
     expect_true(stats.stage_evals >= 3, "ERK step reports stage evaluations");
   }
 
@@ -126,13 +141,19 @@ static void test_dirk_implicit_midpoint_linear_decay(void)
 
   while (ark_get_time(state) < tf - 1e-14)
   {
+    int flag;
     double remaining = tf - ark_get_time(state);
     ark_get_summary(state, &summary);
     expect_true(ark_set_step_size(
                   state, remaining < summary.current_h ? remaining : summary.current_h) == 0,
                 "ark_set_step_size succeeds during DIRK integration");
-    expect_true(ark_step(state, rhs_linear_decay, jac_linear_decay, NULL, &stats) == 0,
-                "ark_step succeeds for DIRK");
+    flag = ark_step(state, rhs_linear_decay, jac_linear_decay, NULL, &stats);
+    expect_true(flag == 0, "ark_step succeeds for DIRK");
+    if (flag != 0)
+    {
+      ark_free(state);
+      return;
+    }
     expect_true(stats.newton_iters > 0, "DIRK step performs Newton iterations");
   }
 
@@ -144,10 +165,121 @@ static void test_dirk_implicit_midpoint_linear_decay(void)
   ark_free(state);
 }
 
+static void test_dirk_fd_jacobian_linear_decay(void)
+{
+  ARKConfig config;
+  ARKState* state;
+  ARKSummary summary;
+  ARKStepStats stats;
+  double y0[1] = {1.0};
+  double y[1] = {0.0};
+  const double tf = 0.2;
+
+  config.dimension = 1;
+  config.max_steps = 200;
+  config.max_newton_iters = 8;
+  config.rtol = 1e-6;
+  config.atol = 1e-9;
+  config.h_init = 1e-3;
+  config.h_min = 1e-8;
+  config.h_max = 5e-2;
+  config.safety = 0.9;
+  config.min_factor = 0.2;
+  config.max_factor = 4.0;
+  config.newton_tol = 0.05;
+  config.method = ARK_METHOD_DIRK_IMPLICIT_MIDPOINT;
+
+  state = ark_create(&config, 0.0, y0);
+  expect_true(state != NULL, "ark_create succeeds for finite-difference DIRK test");
+  if (state == NULL) { return; }
+
+  while (ark_get_time(state) < tf - 1e-14)
+  {
+    int flag;
+    double remaining = tf - ark_get_time(state);
+    ark_get_summary(state, &summary);
+    expect_true(ark_set_step_size(
+                  state, remaining < summary.current_h ? remaining : summary.current_h) == 0,
+                "ark_set_step_size succeeds during finite-difference DIRK integration");
+    flag = ark_step(state, rhs_linear_decay, NULL, NULL, &stats);
+    expect_true(flag == 0, "ark_step succeeds for DIRK finite-difference Jacobian");
+    if (flag != 0)
+    {
+      ark_free(state);
+      return;
+    }
+    expect_true(stats.newton_iters > 0, "DIRK finite-difference path performs Newton iterations");
+  }
+
+  expect_true(ark_get_state(state, y) == 0, "DIRK finite-difference final state can be read");
+  expect_close(y[0], exp(-2.0 * tf), 8e-3,
+               "DIRK finite-difference solution matches linear decay");
+  expect_true(ark_get_summary(state, &summary) == 0,
+              "DIRK finite-difference summary is available");
+  expect_true(summary.jac_evals > 0,
+              "DIRK finite-difference summary records Jacobian evaluations");
+  expect_true(summary.rhs_evals > summary.jac_evals,
+              "DIRK finite-difference path performs extra RHS evaluations");
+  ark_free(state);
+}
+
+static void test_erk_zero_rhs_preserves_state(void)
+{
+  ARKConfig config;
+  ARKState* state;
+  ARKSummary summary;
+  ARKStepStats stats;
+  double y0[1] = {2.5};
+  double y[1] = {0.0};
+  const double tf = 0.15;
+
+  config.dimension = 1;
+  config.max_steps = 100;
+  config.max_newton_iters = 8;
+  config.rtol = 1e-7;
+  config.atol = 1e-10;
+  config.h_init = 1e-3;
+  config.h_min = 1e-8;
+  config.h_max = 5e-2;
+  config.safety = 0.9;
+  config.min_factor = 0.2;
+  config.max_factor = 4.0;
+  config.newton_tol = 0.05;
+  config.method = ARK_METHOD_ERK_RK4;
+
+  state = ark_create(&config, 0.0, y0);
+  expect_true(state != NULL, "ark_create succeeds for zero-RHS ERK test");
+  if (state == NULL) { return; }
+
+  while (ark_get_time(state) < tf - 1e-14)
+  {
+    int flag;
+    double remaining = tf - ark_get_time(state);
+    ark_get_summary(state, &summary);
+    expect_true(ark_set_step_size(
+                  state, remaining < summary.current_h ? remaining : summary.current_h) == 0,
+                "ark_set_step_size succeeds during zero-RHS ERK integration");
+    flag = ark_step(state, rhs_zero, NULL, NULL, &stats);
+    expect_true(flag == 0, "ark_step succeeds for zero-RHS ERK");
+    if (flag != 0)
+    {
+      ark_free(state);
+      return;
+    }
+  }
+
+  expect_true(ark_get_state(state, y) == 0, "zero-RHS ERK final state can be read");
+  expect_close(ark_get_time(state), tf, 1e-12, "zero-RHS ERK reaches target final time");
+  expect_close(y[0], y0[0], 1e-12, "zero-RHS ERK preserves the state");
+  ark_free(state);
+}
+
 int main(void)
 {
   test_erk_rk4_exp_growth();
   test_dirk_implicit_midpoint_linear_decay();
+  test_dirk_fd_jacobian_linear_decay();
+  test_erk_zero_rhs_preserves_state();
 
   if (failures != 0)
   {

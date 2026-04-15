@@ -57,12 +57,6 @@ static void sbdf_copy(int n, const double* src, double* dst)
   memcpy(dst, src, (size_t)n * sizeof(double));
 }
 
-static void sbdf_scale(int n, double factor, const double* src, double* dst)
-{
-  int i;
-  for (i = 0; i < n; ++i) { dst[i] = factor * src[i]; }
-}
-
 static void sbdf_axpy(int n, double alpha, const double* x, double* y)
 {
   int i;
@@ -186,13 +180,10 @@ static int sbdf_compute_derivative_weights(int order, double h,
 
   for (row = 0; row < size; ++row)
   {
-    double power = 1.0;
     rhs[row] = (row == 1) ? 1.0 : 0.0;
     for (col = 0; col < size; ++col)
     {
-      if (col == 0) { power = 1.0; }
-      else { power = pow(nodes[col], (double)row); }
-      matrix[row * size + col] = power;
+      matrix[row * size + col] = (row == 0) ? 1.0 : pow(nodes[col], (double)row);
     }
   }
 

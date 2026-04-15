@@ -6,6 +6,13 @@ from typing import Callable
 import numpy as np
 
 from .native import NativeSolver, SBDFConfig
+from .numerics import (
+    ExactSolutionFn,
+    linear_interpolate,
+    max_output_error,
+    uniform_output_times,
+    validate_output_times,
+)
 
 
 ArrayFn = Callable[[float, np.ndarray], np.ndarray]
@@ -19,6 +26,7 @@ class ODEProblem:
     initial_state: np.ndarray
     rhs: ArrayFn
     jacobian: ArrayFn | None = None
+    exact_solution: ExactSolutionFn | None = None
 
 
 @dataclass
@@ -30,7 +38,7 @@ class SolverConfig:
     h_min: float = 1e-10
     h_max: float = 0.5
     max_order: int = 2
-    max_steps: int = 10000
+    max_steps: int = 50000
     max_newton_iters: int = 8
     safety: float = 0.9
     min_factor: float = 0.2
@@ -91,23 +99,22 @@ class RunResult:
     summary: RunSummary
 
 
-def _linear_interpolate(t0: float, y0: np.ndarray, t1: float, y1: np.ndarray, t: float) -> np.ndarray:
-    if abs(t1 - t0) < 1e-15:
-        return y1.copy()
-    theta = (t - t0) / (t1 - t0)
-    return (1.0 - theta) * y0 + theta * y1
+def solve_problem_uniform(problem: ODEProblem, config: SolverConfig, num_points: int = 101) -> RunResult:
+    return solve_problem(
+        problem,
+        config,
+        output_times=uniform_output_times(problem.initial_time, config.t_final, num_points),
+    )
+
+
+def compute_reference_error(problem: ODEProblem, result: RunResult) -> float:
+    if problem.exact_solution is None:
+        raise ValueError("problem does not define an exact solution")
+    return max_output_error(result.output_times, result.output_states, problem.exact_solution)
 
 
 def solve_problem(problem: ODEProblem, config: SolverConfig, output_times=None) -> RunResult:
-    if output_times is None:
-        output_times = np.linspace(problem.initial_time, config.t_final, 101, dtype=np.float64)
-    else:
-        output_times = np.asarray(output_times, dtype=np.float64)
-
-    if output_times[0] < problem.initial_time - 1e-15:
-        raise ValueError("output_times must start at or after the initial time")
-    if output_times[-1] > config.t_final + 1e-15:
-        raise ValueError("output_times must not exceed t_final")
+    output_times = validate_output_times(problem.initial_time, config.t_final, output_times)
 
     solver = NativeSolver(
         config=config.to_native(problem.dimension),
@@ -119,11 +126,13 @@ def solve_problem(problem: ODEProblem, config: SolverConfig, output_times=None) 
 
     step_history: list[StepRecord] = []
     output_states = np.empty((len(output_times), problem.dimension), dtype=np.float64)
-    output_states[0] = np.asarray(problem.initial_state, dtype=np.float64)
-
-    output_index = 1
     prev_t = problem.initial_time
     prev_y = np.asarray(problem.initial_state, dtype=np.float64).copy()
+    output_index = 0
+
+    while output_index < len(output_times) and output_times[output_index] <= prev_t + 1e-15:
+        output_states[output_index] = prev_y
+        output_index += 1
 
     while solver.time() < config.t_final - 1e-15:
         remaining = config.t_final - solver.time()
@@ -149,7 +158,7 @@ def solve_problem(problem: ODEProblem, config: SolverConfig, output_times=None) 
         )
 
         while output_index < len(output_times) and output_times[output_index] <= curr_t + 1e-15:
-            output_states[output_index] = _linear_interpolate(
+            output_states[output_index] = linear_interpolate(
                 prev_t, prev_y, curr_t, curr_y, output_times[output_index]
             )
             output_index += 1
