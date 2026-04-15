@@ -96,6 +96,27 @@ class ARKWorkflowTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "RHS callback failed"):
             solve_ark_problem(problem, ARKSolverConfig(t_final=0.1, h_init=1e-3, h_max=0.01))
 
+    def test_solve_ark_problem_reports_jacobian_callback_shape_errors(self) -> None:
+        def rhs(_t: float, y: np.ndarray) -> np.ndarray:
+            return -y
+
+        def bad_jac(t: float, _y: np.ndarray) -> np.ndarray:
+            if t <= 1e-15:
+                return np.array([[-1.0]], dtype=np.float64)
+            return np.array([[-1.0, 0.0]], dtype=np.float64)
+
+        problem = ARKProblem(
+            name="ark_bad_jac_shape",
+            dimension=1,
+            initial_time=0.0,
+            initial_state=np.array([1.0], dtype=np.float64),
+            rhs=rhs,
+            jacobian=bad_jac,
+            method=DIRK_BACKWARD_EULER,
+        )
+        with self.assertRaisesRegex(RuntimeError, "Jacobian callback failed"):
+            solve_ark_problem(problem, ARKSolverConfig(t_final=0.1, h_init=1e-3, h_max=0.01))
+
 
 if __name__ == "__main__":
     unittest.main()

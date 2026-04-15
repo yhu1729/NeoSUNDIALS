@@ -49,7 +49,7 @@ The extracted implementation currently includes:
 |------|--------------|----------|
 | SBDF workflow | `python/NeoSUNDIALS/workflow.py` | Raises Python exceptions on invalid setup and native nonzero return codes. |
 | ARK workflow | `python/NeoSUNDIALS/ark_workflow.py` | Same error model as SBDF workflow. |
-| Native bridges | `python/NeoSUNDIALS/native.py`, `python/NeoSUNDIALS/ark_native.py` | Uses `ctypes`; callbacks must return correctly shaped numeric arrays and should avoid raising. |
+| Native bridges | `python/NeoSUNDIALS/native.py`, `python/NeoSUNDIALS/ark_native.py` | Uses `ctypes`; validates callback output shapes/finiteness and surfaces callback failures through descriptive Python exceptions. |
 
 ## Extracted Solver Scope
 
@@ -73,8 +73,8 @@ feature completeness. It currently includes:
 - No rootfinding, sensitivity analysis, constraints, projection, or events.
 - Some test files in `tests/` are exploratory artifacts and are not wired into
   the default build (`make tests` / `make check`).
-- Current NVector weighted-norm routines in `c/nvector_serial.c` should be
-  treated as under review (the weight argument is currently unused).
+- Weighted NVector operators are implemented for serial vectors, but only the
+  serial backend is currently in scope.
 
 This extraction is intentionally smaller than full SUNDIALS. It does not aim to
 reproduce the full feature surface such as large solver stacks, rootfinding,

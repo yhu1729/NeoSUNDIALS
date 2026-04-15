@@ -15,6 +15,16 @@
   - Removed Python launcher, redundant targets (c-test/python-test/test).
   - Fixed C tests (adapt h_max, interp tolerances, warnings).
   - All tests launched/verified in Python unittest discover.
+- [0.3.1] Phase 1 Hardening
+  - Fixed weighted NVector operations in `c/nvector_serial.c` (`N_VWL2Norm_Serial`, `N_VWrmsNorm_Serial`, `N_VWSqrSumLocal_Serial`) to consume the weight vector.
+  - Expanded `tests/test_nvector_serial.c` with non-uniform weight checks for weighted norm behavior.
+  - Hardened Python native callback bridges (`python/NeoSUNDIALS/native.py`, `python/NeoSUNDIALS/ark_native.py`) with:
+    - callback output shape/finiteness validation,
+    - callback exception capture and propagation through step failures,
+    - initial-state dimensionality checks at solver construction.
+  - Added workflow failure-path tests for malformed RHS/Jacobian callback outputs in:
+    - `tests/test_workflow.py`
+    - `tests/test_ark_workflow.py`
 
 ## [0.2.0] - 2024 - NVector Serial Layer
 - Added `c/nvector_serial.[ch]` minimal `N_Vector` (self-contained).
